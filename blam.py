@@ -2071,7 +2071,20 @@ class BlamMilter(ppymilter.server.PpyMilter):
             rhs = rhs.lower()
             rhs = re.sub('[\\r\\n\\t]', ' ', rhs)
 
-            m = re.match('^(?:from\s+(?P<sender_host1>[^\s]+)\s+\((?P<sender_host2>[\w.]+)\s+\[(?P<sender_ip>(?:IPv6:)?[a-f:\d.]+)\]\)\s+by\s)+(?P<receiver>[^\s]+)', rhs, flags=re.I|re.M)
+            rehres = ('^from\s+(?P<sender_host>[\w._-]+)\s+\(([\w._-]+)\s+\[(?:IPv6:)?([a-f\d:.]+)\]\)\s+.*?by\s+(?P<receiver>[\w._-]+)',           # standard sendmail/postfix
+                      '^from\s+(?P<sender_host>[\w._-]+)\s+\((?:IPv6:)?([a-f\d:.]+)\)\s+by\s+(?P<receiver>[\w._-]+)\s+\((?:IPv6:)?([a-f\d:.]+)\)',  # microsoft
+                      '^from\s+(?P<sender_host>[\w._-]+)\s+\((?:IPv6:)?([a-f\d:.]+)\)\s+.*?by\s+(?P<receiver>[\w._-]+)'                             # qmail
+                      '^from\s+(?P<sender_host>[\w._-]+)\s+\(helo\s+(?:IPv6:)?([\w._-]+)\)\s+\(([\w._-]+)\)\s+.*?by\s+(?P<receiver>[\w._-]+)'       # qmail
+                      '^by\s+(?P<receiver>[\w._-]+)',                                                                                               # google
+                      '\(nullmailer pid 6750 invoked by uid 0\)',
+                      '\(qmail 26425 invoked from network\)',
+                     )
+            m=None
+            for rehre in rehres:
+                m = re.match(rehre, rhs, flags=re.I|re.M|re.S)
+                if m:
+                    break
+
             if not m:
                 self.printme('unable to re match Received header, please check: {}'.format(rhs), level=logging.WARNING, console=True)
             if m:
@@ -2093,9 +2106,9 @@ class BlamMilter(ppymilter.server.PpyMilter):
 
                         #relays.append(h)
 
+                # tunable, and, we shouldn't really need this - put it into the blacklist
                 fuckheads=[]
                 for relay in relays:
-                    # tunable, and, we shouldn't really need this - put it into the blacklist
                     for fuckhead in ['163.net','163data.com.cn','263.net','263xmail.com','bl263.com','bl868.com','bluemilenetworks.net',
                                      'adval.info','auto-quotes.eu','look-gud.eu','oszo.net','hom-solrpnel.eu',
                                     ]:
