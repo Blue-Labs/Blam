@@ -1122,7 +1122,7 @@ class BlamMilter(ppymilter.server.PpyMilter):
             except:
                 t,v,tb = sys.exc_info()
                 self.printme('failed cams notify: {}'.format(v), level=logging.WARNING)
-        else if not self.unittest:
+        elif not self.unittest:
             self.printme('No CAMS instance?', console=True)
 
 
@@ -2058,7 +2058,7 @@ class BlamMilter(ppymilter.server.PpyMilter):
 
             m = re.match('^(?:from\s+(?P<sender_host1>[^\s]+)\s+\((?P<sender_host2>[\w.]+)\s+\[(?P<sender_ip>(?:IPv6:)?[a-f:\d.]+)\]\)\s+by\s)+(?P<receiver>[^\s]+)', rhs, flags=re.I|re.M)
             if not m:
-                self.printme('unable to re match Received header, please check: {}'.format(rhs), loglevel=logging.WARNING, console=True)
+                self.printme('unable to re match Received header, please check: {}'.format(rhs), level=logging.WARNING, console=True)
             if m:
                 relays = set(m.groupdict().values())
                 for v in relays:
@@ -2455,7 +2455,7 @@ class BlamMilter(ppymilter.server.PpyMilter):
 
                                 m= re.match('(?:https?:)?(?://)?([^/]+)', e[attr])
                                 if not m:
-                                    self.printme("didn't match an expected hostname in an expected URI: {}".format(e[attr]), loglevel=logging.WARNING, console=True)
+                                    self.printme("didn't match an expected hostname in an expected URI: {}".format(e[attr]), level=logging.WARNING, console=True)
                                 if m:
                                     v = m.group(1)
                                     if v in _checked:
