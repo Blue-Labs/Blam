@@ -3165,8 +3165,8 @@ class BlamMilter(ppymilter.server.PpyMilter):
                             if not redirect:
                                 redirect = redirect_per_domain.get('+')
 
-                        ar_username = arfcp.get('smtp username')
-                        ar_password = arfcp.get('smtp password')
+                        ar_username = arfc.get('smtp username')
+                        ar_password = arfc.get('smtp password')
 
                         ar.set_auth_credentials(ar_username, ar_password)
                         self.printme('set redirectTo={}'.format(redirect), console=True)
