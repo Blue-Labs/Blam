@@ -2480,7 +2480,7 @@ class BlamMilter(ppymilter.server.PpyMilter):
                                     if attr in e:
                                         break
 
-                                m= re.match('(?:(?:https?:)?(?://)|mailto:[^@]+@)?([\w._-]+)', e[attr])
+                                m= re.match('\"?(?:(?:https?:)?(?://)|mailto:[^@]+@)?([\w._-]+)', e[attr])
                                 if not m:
                                     self.printme("didn't match an expected hostname in an expected URI: {}".format(e[attr]), level=logging.WARNING, console=True)
                                 if m:
