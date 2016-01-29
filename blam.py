@@ -1283,7 +1283,7 @@ class BlamMilter(ppymilter.server.PpyMilter):
             try:
                 answers = self.resolver.query(q, 'A')
             except (dns.resolver.NXDOMAIN, dns.resolver.NoNameservers, dns.resolver.NoAnswer, dns.exception.Timeout): pass
-            except Exception as e: self.printme('problem resolving {}: {}'.format(q, e), console=True)
+            except Exception as e: self.printme('DNSBL/ip; problem resolving {}: {}'.format(q, e), console=True)
 
             for answer in answers:
                 if answer.address in reasons:
@@ -1319,7 +1319,7 @@ class BlamMilter(ppymilter.server.PpyMilter):
         try:
             answers = self.resolver.query(q, 'A')
         except (dns.resolver.NXDOMAIN, dns.resolver.NoNameservers, dns.resolver.NoAnswer, dns.exception.Timeout): pass
-        except Exception as e: self.printme('problem resolving {}: {}'.format(q, e), console=True)
+        except Exception as e: self.printme('DNSBL/host; problem resolving {}: {}'.format(q, e), console=True)
 
         for answer in answers:
             if answer.address in reasons:
@@ -1524,7 +1524,7 @@ class BlamMilter(ppymilter.server.PpyMilter):
                     for z in self.resolver.query(__rdata.exchange.to_text(), __rdtype):
                         answers.append(z.address)
                 except (dns.resolver.NXDOMAIN, dns.resolver.NoNameservers, dns.resolver.NoAnswer, dns.exception.Timeout): pass
-                except Exception as e: self.printme('problem resolving MX {} on {}: {}'.format(__rdtype,__rdata.exchange.to_text(),e), console=True)
+                except Exception as e: self.printme('resolve mx; problem resolving {} on {}: {}'.format(__rdtype,__rdata.exchange.to_text(),e), console=True)
 
         self.printme('IPs of MX({}) are: {}'.format(host, answers))
 
@@ -1942,7 +1942,7 @@ class BlamMilter(ppymilter.server.PpyMilter):
             return self.return_delayed_kick ('\033[31m☠\033[0m [{}] HELO hostname MUST NOT be a CNAME, ({}).'
                 ' RFC5321 2.3.5. See https://blue-labs.org/blocked_mail/index.html'.format(self._datetime, helo), 'CNAME HELO', 501)
         except (dns.resolver.NXDOMAIN, dns.resolver.NoNameservers, dns.resolver.NoAnswer, dns.exception.Timeout): pass
-        except Exception as e: self.printme('problem resolving {} on {}: {}'.format('CNAME',helo,e), console=True)
+        except Exception as e: self.printme('check helo/cname; problem resolving {} on {}: {}'.format('CNAME',helo,e), console=True)
 
         # get initial list of IPs this helo's MX record(s) resolve to
         answers  = self._resolve_mx_host_to_ip(helo)
@@ -2453,7 +2453,7 @@ class BlamMilter(ppymilter.server.PpyMilter):
                                     if attr in e:
                                         break
 
-                                m= re.match('(?:https?:)?(?://)?([^/]+)', e[attr])
+                                m= re.match('(?:(?:https?:)?(?://)|mailto:[^@]+@)?([\w._-]+)', e[attr])
                                 if not m:
                                     self.printme("didn't match an expected hostname in an expected URI: {}".format(e[attr]), level=logging.WARNING, console=True)
                                 if m:
@@ -3172,7 +3172,7 @@ class BlamMilter(ppymilter.server.PpyMilter):
                         self.printme('set redirectTo={}'.format(redirect), console=True)
 
                         if not self.unittest:
-                            ar.send(redirectTo=redirect)
+                            #ar.send(redirectTo=redirect)
                             self.printme('ARF report sent to {}'.format(ar.abuse_contacts), console=True)
                         else:
                             self.printme('ARF report would have been sent to: {}'.format(ar.abuse_contacts), console=True)
