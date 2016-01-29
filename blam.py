@@ -1311,13 +1311,13 @@ class BlamMilter(ppymilter.server.PpyMilter):
                     '127.0.1.0':'Spamhaus Domain Blocklist',
                   }
 
-        addr = addr + '.zen.spamhaus.org.'
-        self.printme('querying for {}'.format(addr))
+        q = addr + '.zen.spamhaus.org.'
+        self.printme('querying for {}'.format(q))
         response = []
         answers=[]
 
         try:
-            answers = self.resolver.query(addr, 'A')
+            answers = self.resolver.query(q, 'A')
         except (dns.resolver.NXDOMAIN, dns.resolver.NoNameservers, dns.resolver.NoAnswer, dns.exception.Timeout): pass
         except Exception as e: self.printme('problem resolving {}: {}'.format(q, e), console=True)
 
