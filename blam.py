@@ -1645,9 +1645,7 @@ class BlamMilter(ppymilter.server.PpyMilter):
                     s='{}@{}'.format(mfrom[0],mfrom[1])
                     h=self.helo[-1]
 
-                    self.printme('Doing spf.query(i={}, s={}, h={})'.format(i, s, h), level=logging.DEBUG)
-                    q = spf.query(i, s, h)
-                    res = q.check()
+                    res = self._spf_check(i,s,h)
                     self.printme('\033[37mSPF result for "MAIL FROM": {}\033[0m'.format(res), level=logging.DEBUG)
                     if res[0] == 'fail':
                         self.mod_dfw_score(self.dfw.grace_score +1, 'SPF designates your IP as a not-permitted source', ensure_positive_penalty=True)
@@ -2040,6 +2038,22 @@ class BlamMilter(ppymilter.server.PpyMilter):
                 self.mod_dfw_score(self.dfw.grace_score+1, '{}'.format(_), ensure_positive_penalty=True)
 
 
+    def _spf_check(self, i, s, h):
+        res = None,None,None
+        if not i and s and h:
+            return res
+
+        try:
+            q   = spf.query(i, s, h)
+            res = q.check()
+            self.printme('spf.query(i={}, s={}, h={}) = {}'.format(i, s, h, res), level=logging.DEBUG)
+        except Exception as e:
+            self.printme(ansi['bred']+'Failed SPF query for {}, {}, {} because: {}'.format(i, s, h, e)+ansi['none'], console=True)
+            traceback.print_exc(8)
+
+        return res
+
+
     def _run_header_tests(self, msg):
         headers = []
         relays  = []
@@ -2193,7 +2207,7 @@ class BlamMilter(ppymilter.server.PpyMilter):
                         .format(self._datetime), 'too many similar recipients', 550)
 
 
-            if lhs == "to":
+            if lhs == 'to':
                 if '<<' in rhs or '>>' in rhs:
                     self.mod_dfw_score(5, 'malformed recipient address: {!r}'.format(rhs))
                     return self.return_delayed_kick ('\033[31m☠\033[0m [{}] ({}) malformed recipient address, you\'re probably a spammer'
@@ -2204,10 +2218,7 @@ class BlamMilter(ppymilter.server.PpyMilter):
                 if lhs == 'from':
                     self.mail_from = rhs
 
-                q   = spf.query(self.client_address, rhs, self.helo)
-                res = q.check()
-
-                self.printme('spf.query(i={}, s={}, h={}) for "{}" = {}'.format(self.client_address, rhs, self.helo, lhs, res), level=logging.DEBUG)
+                res = self._spf_check(self.client_address, rhs, self.helo)
 
                 if res[0] == 'fail':
                     self.mod_dfw_score(self.dfw.grace_score +1, 'SPF designates your IP as a not-permitted source', ensure_positive_penalty=True)
@@ -2425,7 +2436,8 @@ class BlamMilter(ppymilter.server.PpyMilter):
                             _xmldoc      = etree.HTML(body)
                             _stylesheets = [cssutils.parseString(e.text) for e in _xmldoc.getroottree().findall('//style')
                                                 if 'type' in e.attrib
-                                                    and e.attrib['type']=='text/css']
+                                                    and e.attrib['type']=='text/css'
+                                                    and e.text]
                             _texts       = set([z.replace('\n',' ')
                                                 for e in _xmldoc.find('body').xpath('.//*')
                                                 for z in e.itertext()
@@ -3103,6 +3115,8 @@ class BlamMilter(ppymilter.server.PpyMilter):
                     if k.startswith('redirect.'):
                         d = k[9:]
                         redirect_per_domain[d] = [x for x in arfc[k].replace(',',' ').split(' ') if x]
+
+                self.printme('redirect_per_domain set to: {}'.format(redirect_per_domain), console=True)
 
                 self.printme('recipients: {}'.format(self.stored_recipients), console=True)
 
