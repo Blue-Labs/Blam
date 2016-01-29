@@ -3171,7 +3171,7 @@ class BlamMilter(ppymilter.server.PpyMilter):
                         ar.set_auth_credentials(ar_username, ar_password)
                         self.printme('set redirectTo={}'.format(redirect), console=True)
 
-                        if not unittest:
+                        if not self.unittest:
                             ar.send(redirectTo=redirect)
                             self.printme('ARF report sent to {}'.format(ar.abuse_contacts), console=True)
                         else:
