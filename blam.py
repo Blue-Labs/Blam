@@ -1654,7 +1654,8 @@ class BlamMilter(ppymilter.server.PpyMilter):
                         # discouraged use, penalize
                         self.mod_dfw_score(5, 'SPF designates your IP as a discouraged-use source')
                     elif res[0] == 'pass':
-                        self.mod_dfw_score(-10, 'SPF designates your IP as a permitted sender')
+                        if not self.spf_authorized:
+                            self.mod_dfw_score(-10, 'SPF designates your IP as a permitted sender')
                         self.spf_authorized = True
                 except:
                     t,v,tb = sys.exc_info()
@@ -2139,7 +2140,7 @@ class BlamMilter(ppymilter.server.PpyMilter):
         for lhs,rhs in [(k,v) for k,v in msg.items() if not k.lower()=='received']:
             try:
                 if isinstance(rhs, email.header.Header):
-                    rhs = ' '.join([ t.decode(e or 'utf-8') for t,e in email.header.decode_header(rhs) ])
+                    rhs = str(rhs)
                 elif '=?' in rhs:
                     _rhs = None
                     for encoding in ('utf-8', 'cp1252', 'latin-1', 'ascii'):
@@ -2226,7 +2227,8 @@ class BlamMilter(ppymilter.server.PpyMilter):
                     # discouraged use, penalize
                     self.mod_dfw_score(5, 'SPF designates your IP as a discouraged-use source')
                 elif res[0] == 'pass':
-                    self.mod_dfw_score(-10, 'SPF designates your IP as a permitted sender')
+                    if not self.spf_authorized:
+                        self.mod_dfw_score(-10, 'SPF designates your IP as a permitted sender')
                     self.spf_authorized = True
 
                 tld = rhs.split('.')[-1:][0]
@@ -2658,7 +2660,7 @@ class BlamMilter(ppymilter.server.PpyMilter):
         #self.try_short_circuit()
         self.quit_location = 'OnHeader'
 
-        self.printme('#HEADER# {:20.20}: {}'.format(lhs,rhs), level=logging.DEBUG)
+        self.printme('#HEADER# {:20.20}: {!r}'.format(lhs,rhs), level=logging.DEBUG)
 
         _ = '{}: {}\r\n'.format(lhs, rhs)
         self.payload += _.encode()
@@ -3134,6 +3136,8 @@ class BlamMilter(ppymilter.server.PpyMilter):
 
                 subject = self.subject_chad or '<message-blocked-before-body-sent>'
 
+                # get arf smtp server config
+
                 ar = arf.ARF(subject=subject, reporting_domain=reporting_domain, smtpport=587, logger=self.printme)
                 ar.i_affirm_this_is_not_used_in_a_commercial_service = True
                 ar.characterize('Source-IP', self.client_address)
@@ -3170,7 +3174,7 @@ class BlamMilter(ppymilter.server.PpyMilter):
                         ar.add_text_notes(self.penalties)
                         ar.generate()
 
-                        # make this tunable
+                        redirect=None
                         if not p:
                             redirect = redirect_per_domain.get('*')
                         else:
@@ -3186,7 +3190,8 @@ class BlamMilter(ppymilter.server.PpyMilter):
                         self.printme('set redirectTo={}'.format(redirect), console=True)
 
                         if not self.unittest:
-                            #ar.send(redirectTo=redirect)
+                            if redirect:
+                                ar.send(redirectTo=redirect)
                             self.printme('ARF report sent to {}'.format(ar.abuse_contacts), console=True)
                         else:
                             self.printme('ARF report would have been sent to: {}'.format(ar.abuse_contacts), console=True)
