@@ -1725,6 +1725,12 @@ class BlamMilter(ppymilter.server.PpyMilter):
             self.recipients.append(rcpt_to)
             self.stored_recipients.append(rcpt_to)
 
+        for mjh in ('itys.net','itriskltd.com'):
+            if rcpt_hostname.lower().endswith(mjh):
+                self.printme('hardwiring whitelist due to {} in RCPT TO: {}'.format(mjh,rcpt_to), console=True)
+                self.whitelisted = True
+                break
+
         if self.whitelisted or self.authenticated:
             return self.Continue()
 
@@ -1739,10 +1745,6 @@ class BlamMilter(ppymilter.server.PpyMilter):
         _ = self._startup_checks()
         if not _ in (None,'c'):  # if not a default None or a Continue(), then return the response
             return _
-
-        if 'itriskltd.com' in rcpt_hostname.lower():
-            self.printme('whitelisting incoming to = @itriskltd.com')
-            self.whitelisted = True
 
         # spammer
         if localpart in self.poison:
@@ -2073,15 +2075,19 @@ class BlamMilter(ppymilter.server.PpyMilter):
 
             rehres = ('^from\s+(?P<sender_host>[\w._-]+)\s+\(([\w._-]+)\s+\[(?:IPv6:)?([a-f\d:.]+)\]\)\s+.*?by\s+(?P<receiver>[\w._-]+)',           # standard sendmail/postfix
                       '^from\s+(?P<sender_host>[\w._-]+)\s+\((?:IPv6:)?([a-f\d:.]+)\)\s+by\s+(?P<receiver>[\w._-]+)\s+\((?:IPv6:)?([a-f\d:.]+)\)',  # microsoft
-                      '^from\s+(?P<sender_host>[\w._-]+)\s+\((?:IPv6:)?([a-f\d:.]+)\)\s+.*?by\s+(?P<receiver>[\w._-]+)'                             # qmail
-                      '^from\s+(?P<sender_host>[\w._-]+)\s+\(helo\s+(?:IPv6:)?([\w._-]+)\)\s+\(([\w._-]+)\)\s+.*?by\s+(?P<receiver>[\w._-]+)'       # qmail
+                      '^from\s+(?P<sender_host>[\w._-]+)\s+\((?:IPv6:)?([a-f\d:.]+)\)\s+.*?by\s+(?P<receiver>[\w._-]+)',                            # qmail
+                      '^from\s+(?P<sender_host>[\w._-]+)\s+\(helo\s+(?:IPv6:)?([\w._-]+)\)\s+\(([\w._-]+)\)\s+.*?by\s+(?P<receiver>[\w._-]+)',      # qmail
                       '^by\s+(?P<receiver>[\w._-]+)',                                                                                               # google
-                      '\(nullmailer pid 6750 invoked by uid 0\)',
-                      '\(qmail 26425 invoked from network\)',
+                      '\(nullmailer pid \d+ invoked by uid \d+\)',
+                      '\(qmail \d+ invoked from network\)',
                      )
             m=None
             for rehre in rehres:
-                m = re.match(rehre, rhs, flags=re.I|re.M|re.S)
+                try:
+                    m = re.match(rehre, rhs, flags=re.I|re.M|re.S)
+                except Exception as e:
+                    self.printme('regex error: {}'.format(e))
+                    self.printme('failed re: {}'.format(rehre))
                 if m:
                     break
 
