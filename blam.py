@@ -2473,14 +2473,17 @@ class BlamMilter(ppymilter.server.PpyMilter):
 
                             _checked = []
                             for e in _extlinks:
+                                hw = 1
                                 for trg in ('height','width'):
                                     if trg in e:
                                         try:
                                             _ = int(e[trg],10)
-                                            if _ <5:
-                                                self.mod_dfw_score(4, 'web bug found with {}={} in {}'.format(trg,_,e))
+                                            hw += _
                                         except: #can't handle it right now
                                             pass
+
+                                if 1< hw <5:
+                                    self.mod_dfw_score(4, 'web bug found in {}'.format(e))
 
                                 for attr in ('href','src'):
                                     if attr in e:
@@ -2986,6 +2989,9 @@ class BlamMilter(ppymilter.server.PpyMilter):
 
 
     def _summary_report(self):
+        if not self.client_address:
+            return
+
         if self.delayed_kick:
             self.printme('kick reasons:')
             for r in self.delayed_kick:
@@ -3124,101 +3130,109 @@ class BlamMilter(ppymilter.server.PpyMilter):
 
             self.print_as_pairs(self.macros, console=True)
 
-            try:
+            if not ('{mail_addr}' in self.macros and self.macros['{mail_addr}'] \
+                    and 'j' in self.macros and self.macros['j']):
+                self.printme('Skipping ARF, no mail_addr value in macros', console=True)
+            else:
                 self.printme('Starting ARF', console=True)
 
-                arfc = 'ARF' in self.config and self.config['ARF']
+                enc_p=False
+                for enc in ('utf-8','cp1252','latin-1','ascii'):
+                    try:
+                        enc_p = self.stored_payload.decode(enc)
+                        break
+                    except Exception as e:
+                        self.printme('Failed to convert payload: {}'.format(e), console=True)
+                        continue
 
-                def_reporting_domain = 'default reporting domain' in arfc and arfc['default reporting domain'] or None
+                if enc_p is False:
+                    self.printme("Unable to convert payload, can't continue with ARF", console=True)
 
-                redirect_per_domain = {}
-                for k in arfc:
-                    if k.startswith('redirect.'):
-                        d = k[9:]
-                        redirect_per_domain[d] = [x for x in arfc[k].replace(',',' ').split(' ') if x]
-
-                self.printme('redirect_per_domain set to: {}'.format(redirect_per_domain), console=True)
-
-                self.printme('recipients: {}'.format(self.stored_recipients), console=True)
-
-                macros           = self.macros
-                mail_from        = macros['{mail_addr}']
-                rcpt_to          = self.stored_recipients or ['<undefined>']
-
-                if len(rcpt_to)>1:
-                    # use default domain
-                    reporting_domain = def_reporting_domain
                 else:
-                    reporting_domain = '@' in rcpt_to[0] and rcpt_to[0].split('@')[1]
+                    try:
 
-                self.printme('reporting_domain is {}'.format(reporting_domain), console=True)
+                        arfc = 'ARF' in self.config and self.config['ARF']
 
-                subject = self.subject_chad or '<message-blocked-before-body-sent>'
+                        def_reporting_domain = 'default reporting domain' in arfc \
+                            and arfc['default reporting domain'] \
+                            or None
 
-                # get arf smtp server config
+                        redirect_per_domain = {}
+                        for k in arfc:
+                            if k.startswith('redirect.'):
+                                d = k[9:]
+                                redirect_per_domain[d] = [x for x in arfc[k].replace(',',' ').split(' ') if x]
 
-                ar = arf.ARF(subject=subject, reporting_domain=reporting_domain, smtpport=587, logger=self.printme)
-                ar.i_affirm_this_is_not_used_in_a_commercial_service = True
-                ar.characterize('Source-IP', self.client_address)
-                ar.characterize('Source-Port', self.client_port)
-                ar.characterize('Reporting-MTA', macros['j'])
-                ar.characterize('Original-Mail-From', mail_from)
-                ar.characterize('Original-Rcpt-To', rcpt_to)
+                        self.printme('redirect_per_domain set to: {}'.format(redirect_per_domain), console=True)
 
-                # reported domain should try to use the DNS resolved address as much as possible
-                # do NOT use the mail_host as that is entirely spoofable
-                if not (self.hostname == self.client_address) and not self.hostname.startswith('['):
-                    reported_domain = self.hostname
-                else:
-                    reported_domain = self.client_address
+                        self.printme('recipients: {}'.format(self.stored_recipients), console=True)
 
-                ar.characterize('Reported-Domain', reported_domain)
-                ar.find_abuse_contacts()
+                        macros           = self.macros
+                        mail_from        = macros['{mail_addr}']
+                        rcpt_to          = self.stored_recipients or ['<undefined>']
 
-                if ar.abuse_contacts:
-                    # continue w/ ARF
-                    p=False
-                    for enc in ('utf-8','cp1252','latin-1','ascii'):
-                        try:
-                            p = self.stored_payload.decode(enc)
-                            break
-                        except Exception as e:
-                            self.printme('Failed to convert payload: {}'.format(e), console=True)
-                            continue
-
-                    if p is False:
-                        self.printme("Unable to convert payload, can't continue with ARF", console=True)
-                    else:
-                        ar.set_message(p)
-                        ar.add_text_notes(self.penalties)
-                        ar.generate()
-
-                        redirect=None
-                        if not p:
-                            redirect = redirect_per_domain.get('*')
+                        if len(rcpt_to)>1:
+                            # use default domain
+                            reporting_domain = def_reporting_domain
                         else:
-                            # based on the reporting domain, set redirect
-                            redirect = redirect_per_domain.get(reporting_domain)
-                            if not redirect:
-                                redirect = redirect_per_domain.get('+')
+                            reporting_domain = '@' in rcpt_to[0] and rcpt_to[0].split('@')[1]
+
+                        self.printme('reporting_domain is {}'.format(reporting_domain), console=True)
+
+                        subject = self.subject_chad or '<message-blocked-before-body-sent>'
+
+                        # get arf smtp server config
+
+                        ar = arf.ARF(subject=subject, reporting_domain=reporting_domain, smtpport=587, logger=self.printme)
+                        ar.characterize('Source-IP', self.client_address)
+                        ar.characterize('Source-Port', self.client_port)
+                        ar.characterize('Reporting-MTA', macros['j'])
+                        ar.characterize('Original-Mail-From', mail_from)
+                        ar.characterize('Original-Rcpt-To', rcpt_to)
+
+                        # reported domain should try to use the DNS resolved address as much as possible
+                        # do NOT use the mail_host as that is entirely spoofable
+                        if not (self.hostname == self.client_address) and not self.hostname.startswith('['):
+                            reported_domain = self.hostname
+                        else:
+                            reported_domain = self.client_address
+
+                        ar.characterize('Reported-Domain', reported_domain)
+
+                        ar.set_message(enc_p)
+                        ar.add_text_notes(self.penalties)
 
                         ar_username = arfc.get('smtp username')
                         ar_password = arfc.get('smtp password')
 
-                        ar.set_auth_credentials(ar_username, ar_password)
-                        self.printme('set redirectTo={}'.format(redirect), console=True)
+                        ar.set_smtp_auth_credentials(ar_username, ar_password)
 
-                        if not self.unittest:
-                            if redirect:
-                                ar.send(redirectTo=redirect)
-                            self.printme('ARF report sent to {}'.format(ar.abuse_contacts), console=True)
-                        else:
-                            self.printme('ARF report would have been sent to: {}'.format(ar.abuse_contacts), console=True)
-                            self.printme(ar)
+                        # this can cause long delays!
+                        if ar.find_abuse_contacts():
+                            ar.generate()
 
-            except Exception as e:
-                self.printme('ARF exception, probably macros: {}'.format(e), console=True)
-                self.printme('{}'.format(traceback.format_exc(10)), console=True)
+                            redirect=None
+                            if not enc_p:
+                                redirect = redirect_per_domain.get('*')
+                            else:
+                                # based on the reporting domain, set redirect
+                                redirect = redirect_per_domain.get(reporting_domain)
+                                if not redirect:
+                                    redirect = redirect_per_domain.get('+')
+
+                            self.printme('set redirectTo={}'.format(redirect), console=True)
+
+                            if not self.unittest:
+                                if redirect:
+                                    ar.send(redirectTo=redirect)
+                                self.printme('ARF report sent to {}'.format(ar.abuse_contacts), console=True)
+                            else:
+                                self.printme('ARF report would have been sent to: {}'.format(ar.abuse_contacts), console=True)
+                                self.printme(ar)
+
+                    except Exception as e:
+                        self.printme('ARF exception, probably macros: {}'.format(e), console=True)
+                        self.printme('{}'.format(traceback.format_exc(10)), console=True)
 
         self._summary_report()
 
