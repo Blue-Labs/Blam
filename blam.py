@@ -2077,6 +2077,8 @@ class BlamMilter(ppymilter.server.PpyMilter):
                       '^from\s+(?P<sender_host>[\w._-]+)\s+\((?:IPv6:)?([a-f\d:.]+)\)\s+by\s+(?P<receiver>[\w._-]+)\s+\((?:IPv6:)?([a-f\d:.]+)\)',  # microsoft
                       '^from\s+(?P<sender_host>[\w._-]+)\s+\((?:IPv6:)?([a-f\d:.]+)\)\s+.*?by\s+(?P<receiver>[\w._-]+)',                            # qmail
                       '^from\s+(?P<sender_host>[\w._-]+)\s+\(helo\s+(?:IPv6:)?([\w._-]+)\)\s+\(([\w._-]+)\)\s+.*?by\s+(?P<receiver>[\w._-]+)',      # qmail
+                      '^from\s+(?P<sender_host>[\w._-]+)\s+\(\[(?:IPv6:)?([a-f\d:.]+)\]\)\s+by\s+(?P<receiver>[\w._-]+)\s+\([\w._-]+\s+\[(?:IPv6:)?([a-f\d:.]+)\]\)',# amavisd-new
+                      '^from\s+\[(?:IPv6:)?([a-f\d:.]+)\]\s+\((?P<sender_host>[\w._-]+)\s+\[(?:IPv6:)?([a-f\d:.]+)\]\).*?by\s+(?P<receiver>[\w._-]+)', #postfix
                       '^by\s+(?P<receiver>[\w._-]+)',                                                                                               # google
                       '\(nullmailer pid \d+ invoked by uid \d+\)',
                       '\(qmail \d+ invoked from network\)',
