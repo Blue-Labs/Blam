@@ -2077,6 +2077,7 @@ class BlamMilter(ppymilter.server.PpyMilter):
                       '^from\s+(?P<sender_host>[\w._-]+)\s+\((?:IPv6:)?([a-f\d:.]+)\)\s+by\s+(?P<receiver>[\w._-]+)\s+\((?:IPv6:)?([a-f\d:.]+)\)',  # microsoft
                       '^from\s+(?P<sender_host>[\w._-]+)\s+\((?:IPv6:)?([a-f\d:.]+)\)\s+.*?by\s+(?P<receiver>[\w._-]+)',                            # qmail
                       '^from\s+(?P<sender_host>[\w._-]+)\s+\(helo\s+(?:IPv6:)?([\w._-]+)\)\s+\(([\w._-]+)\)\s+.*?by\s+(?P<receiver>[\w._-]+)',      # qmail
+                      '^from\s+(?P<sender_host>[\w._-]+)\s+\(helo\s+([\w._-]+)\)\s+\((?:IPv6:)?\[([a-f\d.]+)\]\)\s+.*?by\s+(?P<receiver>[\w._-]+)', #
                       '^from\s+(?P<sender_host>[\w._-]+)\s+\(\[(?:IPv6:)?([a-f\d:.]+)\]\)\s+by\s+(?P<receiver>[\w._-]+)\s+\([\w._-]+\s+\[(?:IPv6:)?([a-f\d:.]+)\]\)',# amavisd-new
                       '^from\s+\[(?:IPv6:)?([a-f\d:.]+)\]\s+\((?P<sender_host>[\w._-]+)\s+\[(?:IPv6:)?([a-f\d:.]+)\]\).*?by\s+(?P<receiver>[\w._-]+)', #postfix
                       '^by\s+(?P<receiver>[\w._-]+)',                                                                                               # google
@@ -2531,17 +2532,23 @@ class BlamMilter(ppymilter.server.PpyMilter):
                             for sheet in _stylesheets:
                                 for rule in sheet:
                                     if rule.type == rule.COMMENT:
-                                        _csscomments.append(rule.cssText)
+                                        _csscomments.append(rule)
                                     elif rule.type == rule.STYLE_RULE:
-                                            rule._setSelectorText(re.sub(':[\w_-]+','', rule.selectorText))
-                                            if not rule.selectorText in _cssselectors:
-                                              _cssrules.append(rule)
-                                              _cssselectors.append(rule.selectorText)
+                                        # some comments are embedded in the style declaration
+                                        _c = [x for x in rule._style.children() if
+                                            hasattr(x, 'type')
+                                            and x.type == x.COMMENT]
+                                        _csscomments += _c
+
+                                        rule._setSelectorText(re.sub(':[\w_-]+','', rule.selectorText))
+                                        if not rule.selectorText in _cssselectors:
+                                          _cssrules.append(rule)
+                                          _cssselectors.append(rule.selectorText)
 
                             self.printme('CSS Rules found:        {}'.format(len(_cssrules)))
                             self.printme('CSS Comments found:     {}'.format(len(_csscomments)))
                             for c in _csscomments:
-                                if len(c) > 200:
+                                if len(c.cssText) > 200:
                                     self.mod_dfw_score(len(c)*.008, 'Long comment in CSS: f(.01)*{}={}'.format(len(c),len(c)*.008))
 
                             matches = {False:0, True:0}
@@ -2772,6 +2779,10 @@ class BlamMilter(ppymilter.server.PpyMilter):
         # store a copy of payload in case of Aborts
         self.stored_payload = self.payload
         self.printme('payload size: {}'.format(len(self.stored_payload)))
+
+        fname = os.path.join(self.config['main']['spool dir'], 'interim', self.macros['i'])
+        with open(fname, 'wb') as f:
+            f.write(self.payload)
 
         if self.whitelisted or self.authenticated:
             return self.Continue()
@@ -3334,6 +3345,7 @@ def main(logger):
     spooldir = config['main']['spool dir']
     os.makedirs(os.path.join(spooldir,'rejects'), mode=0o700, exist_ok=True)
     os.makedirs(os.path.join(spooldir,'logfiles'), mode=0o700, exist_ok=True)
+    os.makedirs(os.path.join(spooldir,'interim'), mode=0o700, exist_ok=True)
 
     ppymilter.server.AsyncPpyMilterServer(config['main']['node address'], port, BlamMilter,
         additional={'config':config,
