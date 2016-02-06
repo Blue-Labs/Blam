@@ -974,6 +974,13 @@ class BlamMilter(ppymilter.server.PpyMilter):
         self.stored_headers    = []
         self.subject_chad      = ''
 
+        # track session layers; normally only a depth of two, the initial connection and for
+        # STARTTLS sessions, another layer. we'll use a dictionary that will normally have
+        # at least a session named 0, and another named 1 for STARTTLS sessions. this will
+        # help ease the tracking of
+        self.session_layers    = {}
+        self.session_depth     = 0
+
         self._init_resettable(initall=True)
         self.printme('## instanced ##', console=True)
         if self.unittest:
@@ -1034,6 +1041,7 @@ class BlamMilter(ppymilter.server.PpyMilter):
             self.whitelisted        = False           # per message
             self.blacklisted        = False           # per message
             self.spf_authorized     = False           # per message
+            self.in_dnsbl           = False           # per message
 
             # store across resets
             self.stored_payload     = b''             # per message
@@ -1292,6 +1300,7 @@ class BlamMilter(ppymilter.server.PpyMilter):
 
         if response:
             self.printme('target found in DNSBL: {}'.format(response))
+            self.in_dnsbl = True
             return response
 
         return False
@@ -1328,6 +1337,7 @@ class BlamMilter(ppymilter.server.PpyMilter):
 
         if response:
             self.printme('target found in DNSBL: {}'.format(response))
+            self.in_dnsbl = True
             return response
 
         return False
@@ -1597,8 +1607,6 @@ class BlamMilter(ppymilter.server.PpyMilter):
             self.printme(ansi['bgreen']+'{} authenticated with {}'.format(self.macros['{auth_authen}'], self.macros['{auth_type}'])+ansi['none'], console=True)
             self.actions.append(self.AddHeader('X-Authenticated-BlueLabs','{} authenticated to send mail'.format(self.macros['{auth_authen}'])))
             self.authenticated = True
-
-        self.print_as_pairs(self.macros, console=True)
 
         # this should already be done by the MTA in macro {mail_addr}, no?
         mfrom = self.macros['{mail_addr}']
@@ -2549,7 +2557,8 @@ class BlamMilter(ppymilter.server.PpyMilter):
                             self.printme('CSS Comments found:     {}'.format(len(_csscomments)))
                             for c in _csscomments:
                                 if len(c.cssText) > 200:
-                                    self.mod_dfw_score(len(c)*.008, 'Long comment in CSS: f(.01)*{}={}'.format(len(c),len(c)*.008))
+                                    __c = len(c.cssText)
+                                    self.mod_dfw_score(__c*.008, 'Long comment in CSS: f(.008)*{}={}'.format(__c,__c*.008))
 
                             matches = {False:0, True:0}
                             for rule in _cssrules:
@@ -2714,33 +2723,12 @@ class BlamMilter(ppymilter.server.PpyMilter):
         self.stored_headers.append( (lhs,rhs) )
 
         now = self._datetime
-        expire = now - datetime.timedelta(hours=2)
-        dels = []
-
-        for k,ts in recent_msgids.items():
-            for t in ts[:]:
-                if t < expire:
-                    ts.remove(t)
-            #if ts:
-            #    self.printme('Dupe MSGID; remaining ts for ID: {}'.format(k))
-            #    for t in ts:
-            #        self.printme('   {}'.format(t))
-            #else:
-            if not ts:
-                dels.append(k)
-
-        for d in dels:
-            del recent_msgids[d]
-
         if lhs.lower() == 'message-id':
-            if not rhs in recent_msgids:
-                recent_msgids[rhs] = []
-            recent_msgids[rhs].append(now)
             # max of 5 recipients per msgid
             # this needs to be a tunable
-            if len(recent_msgids[rhs]) > 5:
-                self.mod_dfw_score(self.dfw.grace_score +1, 'duplicate msgid', ensure_positive_penalty=True)
-                return self.return_delayed_kick ('\033[31m☠\033[0m [{}] ({}) duplicate msgid found, you\'re probably a spammer'.format(self._datetime, rhs), 'duplicate msgid', 451)
+            if rhs in recent_msgids:
+                if len(recent_msgids[rhs]) > 5:
+                    self.mod_dfw_score(len(recent_msgids[rhs]), 'duplicate msgid, count={}'.format(len(recent_msgids[rhs])), ensure_positive_penalty=True)
 
         return self.Continue()
 
@@ -2836,14 +2824,12 @@ class BlamMilter(ppymilter.server.PpyMilter):
                 self.was_kicked = True
                 qid = 'i' in self.macros and self.macros['i'] or "q<?2>"
                 self.printme ('{} \x1d\x02\x0313{}\x0f \u22b3 {}; {}'.format(qid, self.mail_from, self.spamurls, 'email refers to spam URLs'))
-                self.cams_notify ('{} \x1d\x02\x0313{}\x0f \u22b3 {}; {}'.format(qid, self.mail_from, self.spamurls, 'email refers to spam URLs'))
                 return self.CustomReply(503, '\033[31m☠\033[0m [{}] email refers to spam URLs'.format(self._datetime), 'SPAMMY_URLS')
 
             if self.dfw_penalty >= self.dfw.grace_score:
                 self.was_kicked = True
                 qid = 'i' in self.macros and self.macros['i'] or "q<?3>"
                 self.printme ('{} \x1d\x02\x0313{}\x0f \u22b3 {}; \x0313{}: scored {}\x0f'.format(qid, self.mail_from, self.recipients, 'email too spammy', self.dfw_penalty))
-                self.cams_notify ('{} \x1d\x02\x0313{}\x0f \u22b3 {}; \x0313{}: scored {}\x0f'.format(qid, self.mail_from, self.recipients, 'email too spammy', self.dfw_penalty))
                 return self.CustomReply(503, '\033[31m☠\033[0m [{}] email too spammy'.format(self._datetime), 'SPAMMY_CONTENT')
 
         # header insertion happens at this phase
@@ -3109,6 +3095,25 @@ class BlamMilter(ppymilter.server.PpyMilter):
 
         self.has_closed=True
 
+        global recent_msgids
+
+        now    = self._datetime
+        expire = now - datetime.timedelta(hours=2)
+        dels   = []
+
+        for k,ts in recent_msgids.items():
+            for t in ts[:]:
+                if t < expire:
+                    ts.remove(t)
+            if not ts:
+                dels.append(k)
+
+        for d in dels:
+            del recent_msgids[d]
+
+
+        # NOTE! this will be affected by multiple messages per session, needs to be fixed
+        # we need to have a per-message post-session function
         # restore self.macros, ensure each element in self.stored_macros exists in self.macros
         for k in self.stored_macros:
             if not k in self.macros:
@@ -3116,21 +3121,39 @@ class BlamMilter(ppymilter.server.PpyMilter):
             elif not self.macros[k] == self.stored_macros[k]:
                 self.macros[k] = self.stored_macros[k]
 
+        # check things that need to be tracked across sessions
+
+        # dupe msg id needs to accumulate on 250 emails otherwise we risk penalizing (legit) senders
+        # that are failing for another reason
+
+        # NOTE! this will be affected by multiple messages per session, needs to be fixed
+        # we need to have a per-message post-session function
+        # add our msgid
+        msgid = [v for k,v in self.headers if k.lower() == 'message-id']
+        if msgid:
+            if not msgid[0] in recent_msgids:
+                recent_msgids[msgid[0]] = []
+            recent_msgids[msgid[0]].append(now)
+
+        # NOTE! this will be affected by multiple messages per session, needs to be fixed
+        # we need to have a per-message post-session function
         if self.do_db_store and self.client_address and self.client_port:
             self.printme('doing DB store')
             self.db_store()
 
-        if self.left_early and not (self.was_kicked or (self.hostname in self.pre_approved)):
-            if not self.mta_reason == '(Default) accepted':
-                self.printme('MTA code: {}, MTA reason: {}'.format(self.mta_code, self.mta_reason), console=True)
-                qid = 'i' in self.stored_macros and self.stored_macros['i'] or "q<?4>"
-                self.cams_notify('{} \x1d\x02\x0313{}\x0f \u22b3 {}; \x0313{},{},{}\x0f'.format(
-                    qid,
-                    self.mail_from or self.hostname,
-                    self.recipients or (self.helo and self.helo[-1] or self.client_address),
-                    self.mta_code,
-                    self.mta_short,
-                    self.reasons))
+        #if not self.left_early and not (self.was_kicked or (self.hostname in self.pre_approved)):
+
+        # don't report chaff to cams
+        if not self.mta_code == 250 and not self.in_dnsbl:
+            self.printme('MTA code: {}, MTA reason: {}'.format(self.mta_code, self.mta_reason), console=True)
+            qid = 'i' in self.stored_macros and self.stored_macros['i'] or "q<?4>"
+            self.cams_notify('{} \x1d\x02\x0313{}\x0f \u22b3 {}; \x0313{},{},{}\x0f'.format(
+                qid,
+                self.mail_from or self.hostname,
+                self.recipients or (self.helo and self.helo[-1] or self.client_address),
+                self.mta_code,
+                self.mta_short,
+                self.reasons))
 
 
         # ARF
@@ -3144,7 +3167,8 @@ class BlamMilter(ppymilter.server.PpyMilter):
             self.print_as_pairs(self.macros, console=True)
 
             if not ('{mail_addr}' in self.macros and self.macros['{mail_addr}'] \
-                    and 'j' in self.macros and self.macros['j']):
+                    and 'j' in self.macros and self.macros['j']
+                    and self.client_port):
                 self.printme('Skipping ARF, no mail_addr value in macros', console=True)
             else:
                 self.printme('Starting ARF', console=True)
