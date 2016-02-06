@@ -1052,7 +1052,6 @@ class BlamMilter(ppymilter.server.PpyMilter):
             self.spamwords          = {}              # deprecated
             self.spamurls           = {}              # deprecated
             self.spamscore          = 0               # deprecated
-            self.delayed_kick       = []              # deprecated
             self.was_kicked         = False           # global
             self.early_punish       = False           # global
             self.left_early         = True            # global
@@ -1409,13 +1408,6 @@ class BlamMilter(ppymilter.server.PpyMilter):
         return False
 
 
-    def return_delayed_kick(self, reason, shorttext, smtpstatus=421):
-        if (reason, shorttext, smtpstatus) not in self.delayed_kick:
-            self.delayed_kick.append ((reason, shorttext, smtpstatus))
-            self.printme('delaying kick: {}'.format(reason), console=True)
-        return self.Continue()
-
-
     def OnMacros(self, cmd, macro, data):
         #ppymilter.base._print_as_pairs(data, indention=16)
         self.quit_location = 'OnMacros'
@@ -1508,9 +1500,7 @@ class BlamMilter(ppymilter.server.PpyMilter):
 
         if unknown_local_attempts[address]['count'] > 3:
             self.printme('{} Emailing too many unknown users ({})'.format(self.client_address,len(unknown_local_attempts[address])), console=True)
-            self.cams_notify ('{} \x1d\x02\x0307Emailing too many unknown users ({})\x0f'.format(self.client_address,len(unknown_local_attempts[address])))
-
-            # early quit, dfw will get updated because >499
+            self.mod_dfw_score(self.dfw.grace_score +1, 'too many unknown recipients', ensure_positive_penalty=True)
             return self.CustomReply(550, '5.5.2 You have attempted to email too many unknown users', '5.5.2')
 
         return self.Continue()
@@ -1639,7 +1629,6 @@ class BlamMilter(ppymilter.server.PpyMilter):
             # invalid MAIL FROM
             else:
                 self.mod_dfw_score(10, 'sender domain invalid')
-                return self.return_delayed_kick ('\033[31m☠\033[0m [{}] ({}) sender domain is invalid, rejecting extremely likely spam bot'.format(self._datetime, mfrom[1]), 'Bad FQDN From', 501)
 
             # don't do SPF checks on our loved stuff
             if self.whitelisted or self.authenticated or self.client_address == '127.0.0.1':
@@ -1657,7 +1646,7 @@ class BlamMilter(ppymilter.server.PpyMilter):
                     self.printme('\033[37mSPF result for "MAIL FROM": {}\033[0m'.format(res), level=logging.DEBUG)
                     if res[0] == 'fail':
                         self.mod_dfw_score(self.dfw.grace_score +1, 'SPF designates your IP as a not-permitted source', ensure_positive_penalty=True)
-                        return self.return_delayed_kick ('\033[31m☠\033[0m [{}] SPF "MAIL FROM"; {} (ip={}, sender={}, host={})'.format(self._datetime, res[2], i, s, h), 'SPF Fail', 551)
+                        return self.Continue()
                     elif res[0] == 'softfail':
                         # discouraged use, penalize
                         self.mod_dfw_score(5, 'SPF designates your IP as a discouraged-use source')
@@ -1675,7 +1664,6 @@ class BlamMilter(ppymilter.server.PpyMilter):
                 self.printme('no MX record for hostname given in env_mail_from', console=True)
                 if not self.check_dns(mfrom[1]):
                     self.mod_dfw_score(10, 'No MX record for domain in env_mail_from')
-                    return self.return_delayed_kick ('\033[31m☠\033[0m [{}] ({}) NO MX record and unresolvable hostname given in env_mail_from'.format(self._datetime, mfrom[1]), 'NXDOMAIN From', 451)
 
         return self.Continue()
 
@@ -1757,7 +1745,7 @@ class BlamMilter(ppymilter.server.PpyMilter):
         # spammer
         if localpart in self.poison:
             self.mod_dfw_score(self.dfw.grace_score +1, 'poisoned localpart', ensure_positive_penalty=True)
-            return self.return_delayed_kick ('\033[31m☠\033[0m [{}] ({}) you emailed a spam poison address'.format(self._datetime, localpart), 'Spam poison', 550)
+            return self.Continue()
 
         # get the first word and drop any punctuation, aka localpart+extension -> localpart
         m = re.match('([\w.]+)', localpart)
@@ -1772,7 +1760,7 @@ class BlamMilter(ppymilter.server.PpyMilter):
         # i need a list of domains that are mine, dovecot@dovecot.org triggers this :)
         if 0 <= uid < 1000 and (not self.is_bluelabs_ip(self.client_address)) and (not localpart in ('portage','postmaster')) :
             self.mod_dfw_score(self.dfw.grace_score +1, 'email to a system account', ensure_positive_penalty=True)
-            return self.return_delayed_kick ('\033[31m☠\033[0m [{}] ({}) you emailed a system account'.format(self._datetime, localpart), 'system account recipient', 503)
+            return self.Continue()
 
         pushoff = False
         # limited use domains
@@ -1785,7 +1773,6 @@ class BlamMilter(ppymilter.server.PpyMilter):
             global unknown_local_attempts
             unknown_local_attempts[self.client_address]['count'] += 1
             self.mod_dfw_score(self.dfw.grace_score +1, 'email to invalid user', ensure_positive_penalty=True)
-            return self.return_delayed_kick ('\033[31m☠\033[0m [{}] ({}) you emailed a non-existent user'.format(self._datetime, localpart), 'NXNAME recipient', 550)
 
         return self.Continue()
 
@@ -1794,25 +1781,22 @@ class BlamMilter(ppymilter.server.PpyMilter):
         _dnsbl = self.check_dnsbl_by_ip(self.client_address)
         if _dnsbl:
             response = ', '.join(_dnsbl)
-            self.cams_notify ('{} \x1d\x02\x0307{}; DNSBL\x0f'.format(self.client_address, response))
+
+
+            # TODO: need to handle this for bypass mode
 
             # early quit
             adr = self.client_address.startswith('IPv6') and self.client_address[5:] or self.client_address
             self.mod_dfw_score(self.dfw.grace_score +1, 'DNSBL: {}'.format(response), ensure_positive_penalty=True)
-            self.dfw.punish(self.st[1], adr, penalty=self.dfw_penalty, reasons=['DNSBL: {}'.format(response)])
-            self.early_punish = True
             return self.CustomReply(550, '5.5.2 {}'.format(response), '5.5.2')
 
         _dnsbl = self.check_dnsbl_by_name(self.hostname)
         if _dnsbl:
             response = ', '.join(_dnsbl)
-            self.cams_notify ('{} \x1d\x02\x0307{}\x0f'.format(self.client_address, response))
 
             # early quit
             adr = self.client_address.startswith('IPv6') and self.client_address[5:] or self.client_address
             self.mod_dfw_score(self.dfw.grace_score +1, 'DNSBL: {}'.format(response), ensure_positive_penalty=True)
-            self.dfw.punish(self.st[1], adr, penalty=self.dfw_penalty, reasons=['DNSBL: {}'.format(response)])
-            self.early_punish = True
             return self.CustomReply(550, '5.5.2 {}'.format(response), '5.5.2')
 
 
@@ -1829,8 +1813,6 @@ class BlamMilter(ppymilter.server.PpyMilter):
         # fuck off ylmf-pc bot
         if helo == 'ylmf-pc':
             self.mod_dfw_score(self.dfw.grace_score +1, '"ylmf-pc" spam bot', ensure_positive_penalty=True)
-            self.dfw.punish(self.st[1], adr, penalty=self.dfw_penalty, reasons=['ylmf-pc spam bot'])
-            self.early_punish = True
             return self.CustomReply(550, '5.5.2 ylmf-pc spam bot', '5.5.2')
 
         # broken shitty software in Brother printers
@@ -1845,9 +1827,7 @@ class BlamMilter(ppymilter.server.PpyMilter):
 
             # this is a permanent error, their MTA is broken. them retrying is useless but we let them
             # continue so we can keep metrics on the IP and content
-            self.mod_dfw_score(10, 'using "localhost" HELO')
-            return self.return_delayed_kick('\033[31m☠\033[0m [{}] HELO greeting malformed, ({}); FQDN required.'
-                ' RFC5321 2.3.5. See https://blue-labs.org/blocked_mail/index.html'.format(self._datetime, helo), 'localhost HELO', 501)
+            self.mod_dfw_score(10, 'using "localhost" HELO; RFC5321 2.3.5')
 
         # should do a hostname/dns match too, some fuckers fake this
         if helo in self.pre_approved:
@@ -1867,9 +1847,7 @@ class BlamMilter(ppymilter.server.PpyMilter):
         # RFC2821 4.1.1.1 indicates a HELLO greeting must be a FQDN or address literal
         # an address literal is an IP address (either ipv4 or ipv6) enclosed in brackets []
         if not '.' in helo and not ':' in helo:
-            self.mod_dfw_score(10, 'HELO not an FQDN')
-            return self.return_delayed_kick ('\033[31m☠\033[0m [{}] HELO greeting malformed, ({}); single word, FQDN required.'
-                ' RFC5321 2.3.5. See https://blue-labs.org/blocked_mail/index.html'.format(self._datetime, helo), 'SINGLE WORD HELO', 501)
+            self.mod_dfw_score(10, 'HELO not an FQDN; RFC5321 2.3.5')
 
         is_ipv6  = False
         is_ip    = False
@@ -1898,9 +1876,7 @@ class BlamMilter(ppymilter.server.PpyMilter):
 
         if is_ip or is_ipv6:
             if not brackets:
-                self.mod_dfw_score(10, 'HELO IP is not bracketed')
-                return self.return_delayed_kick('\033[31m☠\033[0m [{}] HELO greeting malformed, ({}); unbracketed IP.'
-                    ' RFC5321 2.3.5. See https://blue-labs.org/blocked_mail/index.html'.format(self._datetime, helo), 'MALFORMED RAW IP HELO', 501)
+                self.mod_dfw_score(10, 'HELO IP is not bracketed; RFC5321 2.3.5')
 
             try:
                 inaddrarpa = dns.reversename.from_address(helo)
@@ -1912,10 +1888,7 @@ class BlamMilter(ppymilter.server.PpyMilter):
                 pass
             except Exception as e:
                 # this can be temporary so return 451 instead of 501
-                self.mod_dfw_score(10, 'HELO greeting unresolvable: {}'.format(e))
-                traceback.print_exc()
-                return self.return_delayed_kick ('\033[31m☠\033[0m [{}] HELO greeting is an unresolvable IP, ({}).'
-                    ' RFC5321 2.3.5. See https://blue-labs.org/blocked_mail/index.html'.format(self._datetime, helo), 'NXDOMAIN HELO', 451)
+                self.mod_dfw_score(5, 'HELO greeting unresolvable: {}; RFC5321 2.3.5'.format(e))
 
             return
 
@@ -1923,9 +1896,7 @@ class BlamMilter(ppymilter.server.PpyMilter):
         tld = helo.split('.')[-1:][0]
 
         if self.test_tld(tld) is False:
-            self.mod_dfw_score(5, 'HELO has unknown TLD')
-            return self.return_delayed_kick ('\033[31m☠\033[0m [{}] HELO greeting uses an unknown TLD, ({}).'
-                ' RFC5321 2.3.5. See https://blue-labs.org/blocked_mail/index.html'.format(self._datetime, helo), 'UNKNOWN TLD HELO', 501)
+            self.mod_dfw_score(5, 'HELO has unknown TLD; RFC5321 2.3.5')
 
         # check dnsbl for self.helo too
         _=None
@@ -1947,9 +1918,7 @@ class BlamMilter(ppymilter.server.PpyMilter):
         # verify it's not a CNAME
         try:
             x = self.resolver.query(helo, 'CNAME')
-            self.mod_dfw_score(10, 'HELO is a CNAME')
-            return self.return_delayed_kick ('\033[31m☠\033[0m [{}] HELO hostname MUST NOT be a CNAME, ({}).'
-                ' RFC5321 2.3.5. See https://blue-labs.org/blocked_mail/index.html'.format(self._datetime, helo), 'CNAME HELO', 501)
+            self.mod_dfw_score(10, 'HELO is a CNAME; RFC5321 2.3.5')
         except (dns.resolver.NXDOMAIN, dns.resolver.NoNameservers, dns.resolver.NoAnswer, dns.exception.Timeout): pass
         except Exception as e: self.printme('check helo/cname; problem resolving {} on {}: {}'.format('CNAME',helo,e), console=True)
 
@@ -1958,9 +1927,7 @@ class BlamMilter(ppymilter.server.PpyMilter):
         answers += self._resolve_a_host_to_ip(helo)
 
         if not answers:
-            self.mod_dfw_score(10, 'HELO; no A/AAAA records found')
-            return self.return_delayed_kick ('\033[31m☠\033[0m [{}] HELO hostname does not resolve to an A/AAAA record, ({}).'
-                ' RFC5321 2.3.5. See https://blue-labs.org/blocked_mail/index.html'.format(self._datetime, helo), 'NXDOMAIN HELO', 451)
+            self.mod_dfw_score(10, 'HELO; no A/AAAA records found; RFC5321 2.3.5')
 
         # now check that at least one of the IPs we resolved will also reverse resolve to the HELO name given to us
         # if none of the IPs match the HELO name, but the PTR resolved to HELO, it's quite likely it is forged.
@@ -1972,9 +1939,6 @@ class BlamMilter(ppymilter.server.PpyMilter):
             self.mod_dfw_score(10, 'DNS lookup of HELO greeting, {}, is {} and'
                 ' does not include the IP you came from: {}. See https://blue-labs.org/blocked_mail/index.html'
                 .format(self._datetime, helo, answers, self.client_address))
-            return self.return_delayed_kick ('\033[31m☠\033[0m [{}] DNS lookup of HELO greeting, {}, is {} and'
-                ' does not include the IP you came from: {}. See https://blue-labs.org/blocked_mail/index.html'
-                .format(self._datetime, helo, answers, self.client_address), 'Foreign IP HELO', 451)
 
         PTR_to_hosts = []
         # get the ptr records, turn each of them into hostnames, then look up each of those hostnames for PTR records..do they match me?
@@ -1999,9 +1963,6 @@ class BlamMilter(ppymilter.server.PpyMilter):
             self.mod_dfw_score(10, 'DNS lookup of HELO greeting, {}, is {} and'
                 ' does not include the IP you came from: {}. See https://blue-labs.org/blocked_mail/index.html'
                 .format(self._datetime, helo, answers, self.client_address))
-            return self.return_delayed_kick ('\033[31m☠\033[0m [{}] DNS lookup of HELO greeting, {}, is {} and'
-                ' does not include the IP you came from: {}. See https://blue-labs.org/blocked_mail/index.html'
-                .format(self._datetime, helo, answers, self.client_address), 'Foreign IP HELO', 451)
 
         answers += answers2
 
@@ -2028,9 +1989,6 @@ class BlamMilter(ppymilter.server.PpyMilter):
             self.mod_dfw_score(10, 'DNS lookup of HELO greeting, {}, is {} and'
                 ' does not include the IP you came from: {}. See https://blue-labs.org/blocked_mail/index.html'
                 .format(self._datetime, helo, answers, self.client_address))
-            return self.return_delayed_kick ('\033[31m☠\033[0m [{}] DNS lookup of HELO greeting, {}, is {} and'
-                ' does not include the IP you came from: {}. See https://blue-labs.org/blocked_mail/index.html'
-                .format(self._datetime, helo, answers, self.client_address), 'Foreign IP HELO', 451)
 
         # check dnsbl for mail-from too
         _=None
@@ -2234,15 +2192,12 @@ class BlamMilter(ppymilter.server.PpyMilter):
                     self.printme('found repeats of substrings: {}'.format(nrs))
 
                 if lp_rc or dm_rc or nrs or len(lp_in_dm)>1:
-                    return self.return_delayed_kick ('\033[31m☠\033[0m [{}] too many similar recipients found, you\'re probably a spammer'
-                        .format(self._datetime), 'too many similar recipients', 550)
+                    self.mod_dfw_score(5, 'too many similar recipients found')
 
 
             if lhs == 'to':
                 if '<<' in rhs or '>>' in rhs:
                     self.mod_dfw_score(5, 'malformed recipient address: {!r}'.format(rhs))
-                    return self.return_delayed_kick ('\033[31m☠\033[0m [{}] ({}) malformed recipient address, you\'re probably a spammer'
-                        .format(self._datetime, rhs), 'malformed recipient address', 451)
 
             elif lhs in ('from', 'reply-to'):
                 rhs = getaddresses([rhs])[0][1]
@@ -2396,12 +2351,6 @@ class BlamMilter(ppymilter.server.PpyMilter):
                 self.printme (ansi['green'] +'Email whitelisted: {username}({matchtype}) "{original_rule}"'.format(**why)+ansi['none'], console=True)
                 self.actions.append(self.AddHeader('X-Blam-Whitelisted', 'TEMPORARILY whitelisted this email'))
                 self.actions.append(self.AddHeader('X-Blam-why-whitelisted', str(why)))
-                if self.delayed_kick:
-                    # add headers to explain why the email would normally be rejected
-                    self.actions.append(self.AddHeader('X-Blam-Notice', "Your email would normally be rejected, here's why:"))
-                    for r in list(set(self.delayed_kick)):
-                        self.actions.append(self.AddHeader('X-Blam-Explain-Reject', r[0]))
-
                 return
 
             # check blacklists
@@ -2415,10 +2364,9 @@ class BlamMilter(ppymilter.server.PpyMilter):
                 self.mod_dfw_score(self.dfw.grace_score +1, 'blacklisted', ensure_positive_penalty=True)
                 # authenticated users won't actually be blocked
                 if self.authenticated:
-                    slef.printme('blacklisted, but overridden by whitelist')
+                    slef.printme('blacklisted, but overridden by authentication')
                     self.actions.append(self.AddHeader('X-Blam-Notice', "Your email would normally be rejected, here's why; blacklist rule: {}".format(why)))
                     return
-                return self.return_delayed_kick('\033[31m☠\033[0m [{}]  Email rejected, you have been blacklisted'.format(self._datetime), 'blacklisted', 550)
 
         except Exception as e:
             self.printme('Exception: {}'.format(e), logging.ERROR, console=True)
@@ -2798,39 +2746,12 @@ class BlamMilter(ppymilter.server.PpyMilter):
                         self.printme('hardwiring whitelist due to {} in RCPT TO: {}'.format(mjh,rcpt_to), console=True)
                         self.whitelisted = True
 
-        # delay this until the black/whitelisting has effected
-        # now that the user has had the chance to authenticate and we know intended recipients plus all headers, kick if they're a loser
-        if not (self.whitelisted or self.authenticated) and self.delayed_kick:
-            self.printme ('enforcing DELAYED KICK', console=True)
-            shortcode = max(x[1] for x in self.delayed_kick)
-            kickcode  = max(x[2] for x in self.delayed_kick)
-            reason    = '\n  '.join(x[1]+' '+x[0] for x in self.delayed_kick)
-            reason    = reason.replace('\033[31m☠\033[0m', '☠')
-            reason    = re.sub('☠[^]]+\]', '☠', reason)
-
-            self.printme (ansi['yellow']+ reason +ansi['none'], console=True)
-            self.actions.append(self.AddHeader('X-Blam-Kick-Reasons',reason))
-
-            qid = 'i' in self.macros and self.macros['i'] or "q<?1>"
-            self.cams_notify ('{} \x1d\x02\x0313{}\x0f \u22b3 {}; {}'.format(qid, self.mail_from, self.recipients, reason))
-            self.was_kicked = True
-            # smfi_delrcpt/addrcpt -only- go in OnEom(), so we can't really kick them here.
-
-            return self.CustomReply(kickcode, reason, shortcode)
-
         if not (self.whitelisted or self.authenticated):
-            # convert this to dfw penalties
-            if self.spamurls:
-                self.was_kicked = True
-                qid = 'i' in self.macros and self.macros['i'] or "q<?2>"
-                self.printme ('{} \x1d\x02\x0313{}\x0f \u22b3 {}; {}'.format(qid, self.mail_from, self.spamurls, 'email refers to spam URLs'))
-                return self.CustomReply(503, '\033[31m☠\033[0m [{}] email refers to spam URLs'.format(self._datetime), 'SPAMMY_URLS')
-
             if self.dfw_penalty >= self.dfw.grace_score:
                 self.was_kicked = True
                 qid = 'i' in self.macros and self.macros['i'] or "q<?3>"
                 self.printme ('{} \x1d\x02\x0313{}\x0f \u22b3 {}; \x0313{}: scored {}\x0f'.format(qid, self.mail_from, self.recipients, 'email too spammy', self.dfw_penalty))
-                return self.CustomReply(503, '\033[31m☠\033[0m [{}] email too spammy'.format(self._datetime), 'SPAMMY_CONTENT')
+                return self.CustomReply(503, '[{}] message not acceptable'.format(self._datetime), 'SPAMMY_CONTENT')
 
         # header insertion happens at this phase
         self.printme ('Inserting Blam headers', logging.DEBUG)
@@ -2840,9 +2761,6 @@ class BlamMilter(ppymilter.server.PpyMilter):
         self.actions.append(self.AddHeader('X-Blam-Report', 'greetings: {}'.format(self.greetings)))
         self.actions.append(self.AddHeader('X-Blam-Report', 'spamwords: {}'.format(self.spamwords)))
         self.actions.append(self.AddHeader('X-Blam-Report', 'spamurls: {}'.format(self.spamurls)))
-
-        for r in self.delayed_kick:
-            self.actions.append(self.AddHeader('X-Blam-Ignored-Flaws',r[0].replace('\033[31m☠\033[0m', '☠')))
 
         self.left_early = False
 
@@ -2924,20 +2842,9 @@ class BlamMilter(ppymilter.server.PpyMilter):
 
         reasons = []
 
-        self.delayed_kick = sorted(set(self.delayed_kick))
-
-        #if self.was_kicked:
-        reasons += [x[0] for x in self.delayed_kick ]
-
-        #self.printme('reason set: {}'.format(reasons))
-
         if mta_reason:
             if not [x for x in reasons if mta_reason in x]:
                 reasons.append(mta_reason.strip())
-
-        #if not self.whitelisted:
-        #    self.mod_dfw_score(self.spamscore, 'add self.spamscore')
-        #    self.mod_dfw_score(len(self.delayed_kick) * 2, 'add reject list length*2')
 
         try:
             mta_code = int(mta_code)
@@ -2990,11 +2897,6 @@ class BlamMilter(ppymilter.server.PpyMilter):
     def _summary_report(self):
         if not self.client_address:
             return
-
-        if self.delayed_kick:
-            self.printme('kick reasons:')
-            for r in self.delayed_kick:
-                self.printme (ansi['yellow']+ r[0] +ansi['none'])
 
         # use the helo_chad since we already processed self._init_resettable() due to session end Abort()
         _console = not(self.helo_chad in ('icinga.security-carpet.com',) and self.mta_code == 250)
@@ -3060,9 +2962,6 @@ class BlamMilter(ppymilter.server.PpyMilter):
             f.write('{}\n'.format(payload))
 
         with open('/var/spool/blam/rejects/'+qid+'.reasons', 'w') as f:
-            for r in self.delayed_kick:
-                f.write('{}\n'.format(r[0]))
-
             f.write('\n')
             mta_code,mta_short,mta_reason = self.getFinis()
             f.write('MTA quit code:   {!r}\n'.format(mta_code))
@@ -3144,7 +3043,7 @@ class BlamMilter(ppymilter.server.PpyMilter):
         #if not self.left_early and not (self.was_kicked or (self.hostname in self.pre_approved)):
 
         # don't report chaff to cams
-        if not self.mta_code == 250 and not self.in_dnsbl:
+        if (not self.mta_code == 250) and (not self.in_dnsbl):
             self.printme('MTA code: {}, MTA reason: {}'.format(self.mta_code, self.mta_reason), console=True)
             qid = 'i' in self.stored_macros and self.stored_macros['i'] or "q<?4>"
             self.cams_notify('{} \x1d\x02\x0313{}\x0f \u22b3 {}; \x0313{},{},{}\x0f'.format(
