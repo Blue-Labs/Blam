@@ -2444,7 +2444,7 @@ class BlamMilter(ppymilter.server.PpyMilter):
                                         break
 
                                 m= re.match('\"?(?:(?:https?:)?(?://)|mailto:[^@]+@)?([\w._-]+)', e[attr])
-                                if not m:
+                                if not m and not e[attr] == '#':
                                     self.printme("didn't match an expected hostname in an expected URI: {}".format(e), level=logging.WARNING, console=True)
                                 if m:
                                     v = m.group(1)
