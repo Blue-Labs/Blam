@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 
-__version__  = '3.0.14'
+__version__  = '3.0.16'
 __author__   = 'David Ford <david@blue-labs.org>'
 __email__    = 'david@blue-labs.org'
-__date__     = '2016-Jan-27 2:11E'
+__date__     = '2016-Feb-8 19:19E'
 __license__  = 'Apache 2.0'
 
 """
@@ -1006,7 +1006,8 @@ class BlamMilter(ppymilter.server.PpyMilter):
         self.headers                = []              # per message
         self.actions                = []              # per message
         self.recipients             = []              # per message
-        self.mail_from              = None            # per message
+        self._from                  = None            # per message (From)
+        self.mail_from              = None            # per message (MAIL FROM)
         self.punished               = False           # per message
         self.mta_code               = -1              # global
         self.mta_short              = None            # global
@@ -1049,9 +1050,6 @@ class BlamMilter(ppymilter.server.PpyMilter):
             # state trackers for spam triggers, don't erase these on multi-email transactions. once a bad guy, always a bad guy
             # yes, this might hurt innocent guys...hmm. reset these after the headers are added on an email?
             self.greetings          = {}              # deprecated
-            self.spamwords          = {}              # deprecated
-            self.spamurls           = {}              # deprecated
-            self.spamscore          = 0               # deprecated
             self.was_kicked         = False           # global
             self.early_punish       = False           # global
             self.left_early         = True            # global
@@ -1196,14 +1194,15 @@ class BlamMilter(ppymilter.server.PpyMilter):
             else:
                 address = self.client_address
 
-            # delete "xxx" from the mail_from
-            if self.mail_from:
+            # delete "xxx" from the _from
+            if self._from:
                 try:
-                    x = re.search('<([\w\d._+-]+@[\w\d._+-]+)>', self.mail_from).group(1)
+                    x = re.search('<([\w\d._+-]+@[\w\d._+-]+)>', self._from).group(1)
                 except:
-                    x = self.mail_from
-                self.mail_from = x.lstrip().rstrip().rstrip('>').lstrip('<')
+                    x = self._from
+                self._from = x.lstrip().rstrip().rstrip('>').lstrip('<')
 
+            # this needs to store both MAIL FROM and From
             stats = {'ts_now':self._datetime, 'ts_milter':ts_milter, 'qid':qid, 'ip':address, 'helo':str(self.helo), 'quitcode':code, 'quitshort':short, 'quitreason':reason, 'quitlocation':self.quit_location, 'recipients':self.recipients, 'mail_from':self.mail_from}
             macros = [ [self._datetime,x[0],x[1]] for x in self.macros.items() ]
             headers = [ [self._datetime,x[0],x[1]] for x in self.headers ]
@@ -1484,7 +1483,7 @@ class BlamMilter(ppymilter.server.PpyMilter):
             else:
                 h = self.client_address
             self.printme(ansi['bred']+'{} Firewalled'.format(h)+ansi['none']+', releasing at: {}Z'.format(_.strftime('%F %T')), console=True)
-            self.cams_notify ('{} \x1d\x02\x0307Firewalled\x0f, releasing at: {}Z'.format(h, _.strftime('%F %T')))
+            #self.cams_notify ('{} \x1d\x02\x0307Firewalled\x0f, releasing at: {}Z'.format(h, _.strftime('%F %T')))
 
             # early quit
             self.early_punish = True # we're not really punishing, we're just telling our quit() routine to not act on the early quit
@@ -1601,7 +1600,7 @@ class BlamMilter(ppymilter.server.PpyMilter):
         # this should already be done by the MTA in macro {mail_addr}, no?
         mfrom = self.macros['{mail_addr}']
         if '@' in mfrom:
-            mfrom = mfrom.split('@',1) #  mail_from.split('@', 1)
+            mfrom = mfrom.split('@',1)
 
             '''
             # handle the lesser used form of 'anbceyv@fibertel.com.ar(Modelos De Contratos Listos Para Usar)'
@@ -1613,9 +1612,8 @@ class BlamMilter(ppymilter.server.PpyMilter):
                 mfrom = re.sub('"[^"]*"', '', mfrom).strip()
             '''
 
-        self.mfrom = mfrom
-
-        self.printme ('Mail From ▶ [{}] {} {}'.format(mfrom,mail_from,esmtp_info), console=True)
+        self.mail_from = mfrom
+        self.printme ('Mail From ▶ {}; {}; {}'.format(mfrom,mail_from,esmtp_info), console=True)
 
         if isinstance(mfrom, list):
             if mfrom[1].lower() in ('itriskltd.com','itys.net'):
@@ -1807,8 +1805,6 @@ class BlamMilter(ppymilter.server.PpyMilter):
             _cb = int(self.macros.get('cipher_bits', '0'))/25.6
             _no_enc_penalty -= _cb
             self.mod_dfw_score(_no_enc_penalty, 'cipher bits strength penalty')
-            if _no_enc_penalty:
-                self.spamwords['non-cipher penalty'] = _no_enc_penalty
 
         # fuck off ylmf-pc bot
         if helo == 'ylmf-pc':
@@ -1936,9 +1932,9 @@ class BlamMilter(ppymilter.server.PpyMilter):
         # this situation.
         me = self.client_address.startswith('IPv6:') and self.client_address[5:] or self.client_address
         if not [ x for x in answers if x == me]:
-            self.mod_dfw_score(10, 'DNS lookup of HELO greeting, {}, is {} and'
+            self.mod_dfw_score(10, 'DNS lookup of HELO greeting ({}) is {} and'
                 ' does not include the IP you came from: {}. See https://blue-labs.org/blocked_mail/index.html'
-                .format(self._datetime, helo, answers, self.client_address))
+                .format(helo, answers, self.client_address))
 
         PTR_to_hosts = []
         # get the ptr records, turn each of them into hostnames, then look up each of those hostnames for PTR records..do they match me?
@@ -1960,9 +1956,9 @@ class BlamMilter(ppymilter.server.PpyMilter):
             answers2 += __mxh
 
         if not answers2:
-            self.mod_dfw_score(10, 'DNS lookup of HELO greeting, {}, is {} and'
+            self.mod_dfw_score(10, 'DNS lookup of HELO greeting ({}) is {} and'
                 ' does not include the IP you came from: {}. See https://blue-labs.org/blocked_mail/index.html'
-                .format(self._datetime, helo, answers, self.client_address))
+                .format(helo, answers, self.client_address))
 
         answers += answers2
 
@@ -1986,13 +1982,16 @@ class BlamMilter(ppymilter.server.PpyMilter):
             if me in answers3:
                 return
 
-            self.mod_dfw_score(10, 'DNS lookup of HELO greeting, {}, is {} and'
+            self.mod_dfw_score(10, 'DNS lookup of HELO greeting ({}) is {} and'
                 ' does not include the IP you came from: {}. See https://blue-labs.org/blocked_mail/index.html'
-                .format(self._datetime, helo, answers, self.client_address))
+                .format(helo, answers, self.client_address))
 
-        # check dnsbl for mail-from too
+        # check dnsbl for mail-from
+        # there is no From yet in startup checks
+        k,h ='MAIL FROM',self.mail_from
+        self.printme('{} is: {}'.format(k,h), console=True)
         _=None
-        v = self.mail_from.split('@')
+        v = h[1]
         if len(v)==2:
             v = v[1]
             try:
@@ -2003,8 +2002,8 @@ class BlamMilter(ppymilter.server.PpyMilter):
                 _ = self.check_dnsbl_by_name(v)
 
             if _:
-                _ = 'MAIL FROM name in DNSBL ({}): '.format(v) + ', '.join(_)
-                self.mod_dfw_score(self.dfw.grace_score+1, '{}'.format(_), ensure_positive_penalty=True)
+                _ = '{}:{} dname in DNSBL ({}): '.format(k,v) + ', '.join(_)
+                self.mod_dfw_score(self.dfw.grace_score+1, _, ensure_positive_penalty=True)
 
 
     def _spf_check(self, i, s, h):
@@ -2045,6 +2044,8 @@ class BlamMilter(ppymilter.server.PpyMilter):
                       '^from\s+(?P<sender_host>[\w._-]+)\s+\(helo\s+(?:IPv6:)?([\w._-]+)\)\s+\(([\w._-]+)\)\s+.*?by\s+(?P<receiver>[\w._-]+)',      # qmail
                       '^from\s+(?P<sender_host>[\w._-]+)\s+\(helo\s+([\w._-]+)\)\s+\((?:IPv6:)?\[([a-f\d.]+)\]\)\s+.*?by\s+(?P<receiver>[\w._-]+)', #
                       '^from\s+(?P<sender_host>[\w._-]+)\s+\(\[(?:IPv6:)?([a-f\d:.]+)\]\)\s+by\s+(?P<receiver>[\w._-]+)\s+\([\w._-]+\s+\[(?:IPv6:)?([a-f\d:.]+)\]\)',# amavisd-new
+                      '^from\s+(?P<sender_host>[\w._-]+)\s+\(\[(?:IPv6:)?([a-f\d:.]+)\]\)\s+by\s+(?P<receiver>[\w._-]+)',                           #
+                      '^from\s+\((?:IPv6:)?(?P<sender_host>[a-f\d:.]+)\)\s+by\s+(?P<receiver>[\w._-]+)',                                            #
                       '^from\s+\[(?:IPv6:)?([a-f\d:.]+)\]\s+\((?P<sender_host>[\w._-]+)\s+\[(?:IPv6:)?([a-f\d:.]+)\]\).*?by\s+(?P<receiver>[\w._-]+)', #postfix
                       '^by\s+(?P<receiver>[\w._-]+)',                                                                                               # google
                       '\(nullmailer pid \d+ invoked by uid \d+\)',
@@ -2202,7 +2203,7 @@ class BlamMilter(ppymilter.server.PpyMilter):
             elif lhs in ('from', 'reply-to'):
                 rhs = getaddresses([rhs])[0][1]
                 if lhs == 'from':
-                    self.mail_from = rhs
+                    self._from = rhs
 
                 res = self._spf_check(self.client_address, rhs, self.helo)
 
@@ -2265,17 +2266,11 @@ class BlamMilter(ppymilter.server.PpyMilter):
                 if not m:
                     m = re.findall(r'\W'+keyword+r'\W', rhs, flags=re.I)
                 if m:
-                    if not keyword in self.spamwords:
-                        self.spamwords[keyword] = []
-                    self.spamwords[keyword].append(len(m))
                     self.mod_dfw_score(len(m)*score, 'header({}) spamword({}) f({})*{}={}'.format(lhs, keyword, score, len(m), len(m)*score))
 
             # xxx-xxxx random letters headers
             if re.fullmatch('\w{2,4}[_-]\w{2,6}', lhs):
                 if not lhs.split('-')[0] in ('list','user','app'):
-                    if not lhs in self.spamwords:
-                        self.spamwords[lhs] = 0
-                    self.spamwords[lhs] += 1
                     self.mod_dfw_score(10, 'xxx-xxxx header:{} f(10)*1=10'.format(lhs))
 
 
@@ -2305,7 +2300,7 @@ class BlamMilter(ppymilter.server.PpyMilter):
             self.printme('checking whitelists')
 
             try:
-                x = getaddresses([self.mail_from])[0][1]
+                x = getaddresses([self._from])[0][1]
             except:
                 x = None
 
@@ -2450,7 +2445,7 @@ class BlamMilter(ppymilter.server.PpyMilter):
 
                                 m= re.match('\"?(?:(?:https?:)?(?://)|mailto:[^@]+@)?([\w._-]+)', e[attr])
                                 if not m:
-                                    self.printme("didn't match an expected hostname in an expected URI: {}".format(e[attr]), level=logging.WARNING, console=True)
+                                    self.printme("didn't match an expected hostname in an expected URI: {}".format(e), level=logging.WARNING, console=True)
                                 if m:
                                     v = m.group(1)
                                     if v in _checked:
@@ -2496,7 +2491,7 @@ class BlamMilter(ppymilter.server.PpyMilter):
                                             and x.type == x.COMMENT]
                                         _csscomments += _c
 
-                                        rule._setSelectorText(re.sub(':[\w_-]+','', rule.selectorText))
+                                        #rule._setSelectorText(re.sub(':[\w_-]+','', rule.selectorText))
                                         if not rule.selectorText in _cssselectors:
                                           _cssrules.append(rule)
                                           _cssselectors.append(rule.selectorText)
@@ -2528,7 +2523,6 @@ class BlamMilter(ppymilter.server.PpyMilter):
                                 __ = re.sub(_pattern, lambda m: html.unescape(m.group(0)), _t, flags=re.I)
 
                                 if len(_) > 20:
-                                    self.spamwords['excessive html entities'] = _
                                     self.mod_dfw_score(len(_)*.5, 'excessive html entities')
                                     self.printme('decoded excessive html entity string: {}'.format(__))
 
@@ -2537,9 +2531,6 @@ class BlamMilter(ppymilter.server.PpyMilter):
                                 for ht in {'[\da-f]{32}',}:
                                     _ = re.findall(ht, _t)
                                     if _:
-                                        if not 'body contains hashes' in self.spamwords:
-                                            self.spamwords['body contains hashes'] = []
-                                        self.spamwords['body contains hashes'].append(_)
                                         self.mod_dfw_score(len(_)*.95, 'body contains hashes')
 
                             # particular URL patterns
@@ -2552,28 +2543,21 @@ class BlamMilter(ppymilter.server.PpyMilter):
                                     burl_list.append(_l)
                             if burl_list:
                                 __ = sorted(set(burl_list))
-                                if not 'url pattern foo1~...~fooN' in self.spamwords:
-                                    self.spamwords['url pattern foo1~...~fooN'] = []
                                 for _url in __:
                                     _c = len([x for x in burl_list if x == _url])
                                     self.mod_dfw_score(3*_c, 'url pattern foo1~...~fooN occurs {} times: {}'.format(_c, _url))
-                                    self.spamwords['url pattern foo1~...~fooN'].append( 'f(3)*{}'.format(_c))
 
                     # these tests apply to both text and html
                     # applies to visual text
                     for keyword,score in spam_dict.items():
                         m = re.findall(r'\b'+keyword+r'\b', body, flags=re.I)
                         if m:
-                            if not keyword in self.spamwords:
-                                self.spamwords[keyword] = []
-                            self.spamwords[keyword].append('f({})*{}={}'.format(score, len(m), len(m)*score))
                             self.mod_dfw_score(len(m)*score, '{}: f({})*{}={}'.format(keyword.replace('%','%%'), score, len(m), len(m)*score))
 
 
                     # applies to visual text
                     _ = len(re.findall('(?:\s/\w+){5,}', body))
                     if _ > 5:
-                        self.spamwords['repeat (/word){5,}+ pattern'] = _
                         self.mod_dfw_score(_, 'repeat (/word){5,}+ pattern')
 
                     # applies to visual text
@@ -2581,7 +2565,6 @@ class BlamMilter(ppymilter.server.PpyMilter):
                     _ = len(re.findall('&#\d+;', body))
                     if _ > 10:
                         self.mod_dfw_score(_/2, '&#\\d+; matches')
-                        self.spamwords['&#hex;'] = _
 
                     # applies to visual text
                     wordlist  = body.split()
@@ -2611,9 +2594,6 @@ class BlamMilter(ppymilter.server.PpyMilter):
                         if f < 2:
                             continue
                         label = 'word freq: {}'.format(w)
-                        if not label in self.spamwords:
-                            self.spamwords[label] = []
-                        self.spamwords[label].append('f({})*{}={}'.format(round(f/c,3),c,f))
                         self.mod_dfw_score(f, '{}: f({})*{}={}'.format(label, round(f/c,3),c,f))
 
 
@@ -2636,9 +2616,6 @@ class BlamMilter(ppymilter.server.PpyMilter):
                     for keyword,score in udict.items():
                         m = re.findall(sep+keyword+sep, body, flags=re.I)
                         if m:
-                            if not keyword in self.spamurls:
-                                self.spamurls[keyword] = 0
-                            self.spamurls[keyword] += len(m)*score
                             self.mod_dfw_score(len(m)*score, 'spamurl: {}, f({})*{}'.format(keyword,score,len(m)))
 
 
@@ -2750,17 +2727,14 @@ class BlamMilter(ppymilter.server.PpyMilter):
             if self.dfw_penalty >= self.dfw.grace_score:
                 self.was_kicked = True
                 qid = 'i' in self.macros and self.macros['i'] or "q<?3>"
-                self.printme ('{} \x1d\x02\x0313{}\x0f \u22b3 {}; \x0313{}: scored {}\x0f'.format(qid, self.mail_from, self.recipients, 'email too spammy', self.dfw_penalty))
+                self.printme ('{} \x1d\x02\x0313{}\x0f \u22b3 {}; \x0313{}: scored {}\x0f'.format(qid, self._from, self.recipients, 'email too spammy', self.dfw_penalty))
                 return self.CustomReply(503, '[{}] message not acceptable'.format(self._datetime), 'SPAMMY_CONTENT')
 
         # header insertion happens at this phase
         self.printme ('Inserting Blam headers', logging.DEBUG)
         self.actions.append(self.AddHeader('X-Blam', 'Blue-Labs Anti-Muggle filter v{}, from {}'.format(__version__, self.st[0])))
         self.actions.append(self.AddHeader('X-Blam-Report', 'dfw_penalty: {}'.format(self.dfw_penalty)))
-        self.actions.append(self.AddHeader('X-Blam-Report', 'spamscore: {}'.format(self.spamscore)))
         self.actions.append(self.AddHeader('X-Blam-Report', 'greetings: {}'.format(self.greetings)))
-        self.actions.append(self.AddHeader('X-Blam-Report', 'spamwords: {}'.format(self.spamwords)))
-        self.actions.append(self.AddHeader('X-Blam-Report', 'spamurls: {}'.format(self.spamurls)))
 
         self.left_early = False
 
@@ -2877,14 +2851,8 @@ class BlamMilter(ppymilter.server.PpyMilter):
 
                     if self.dfw_penalty:
                         reasons.append('dfw score: {}'.format(self.dfw_penalty))
-                    if self.spamscore:
-                        reasons.append('spamscore: {}'.format(self.spamscore))
                     if self.greetings:
                         reasons.append('greetings: {}'.format(self.greetings))
-                    if self.spamwords:
-                        reasons.append('spamwords: {}'.format(self.spamwords))
-                    if self.spamurls:
-                        reasons.append('spamurls: {}'.format(self.spamurls))
 
                     # don't waste time punching twice, early punished connections are grace+1; already firewalled
                     if not self.early_punish:
@@ -2914,10 +2882,7 @@ class BlamMilter(ppymilter.server.PpyMilter):
         self.printme('blacklisted:     {!r}'.format(self.blacklisted))
         self.printme('authenticated:   {!r}'.format(self.authenticated))
 
-        self.printme('X-Blam-Report-spamscore: {}'.format(self.spamscore))
         self.printme('X-Blam-Report-greetings: {}'.format(self.greetings))
-        self.printme('X-Blam-Report-spamwords: {}'.format(self.spamwords))
-        self.printme('X-Blam-Report-spamurls: {}'.format(self.spamurls))
 
         if self.mta_code == 250 and (self.hostname in self.pre_approved) or self.whitelisted or (not self.left_early):
             color = '\033[1;32m'
@@ -2935,12 +2900,12 @@ class BlamMilter(ppymilter.server.PpyMilter):
         purgetime = time.time() - (86400*30)
         for f in os.scandir('/var/spool/blam/rejects'):
             if f.stat().st_ctime < purgetime:
-                self.printme('purging /var/spool/blam/rejects/{}'.format(f))
-                os.unlink(os.path.join('/var/spool/blam/rejects',f))
+                self.printme('purging /var/spool/blam/rejects/{}'.format(f.name))
+                os.unlink(os.path.join('/var/spool/blam/rejects',f.name))
         for f in os.scandir('/var/spool/blam/logfiles'):
             if f.stat().st_ctime < purgetime:
-                self.printme('purging /var/spool/blam/logfiles/{}'.format(f))
-                os.unlink(os.path.join('/var/spool/blam/logfiles',f))
+                self.printme('purging /var/spool/blam/logfiles/{}'.format(f.name))
+                os.unlink(os.path.join('/var/spool/blam/logfiles',f.name))
 
 
     def _store_reject(self):
@@ -2975,10 +2940,7 @@ class BlamMilter(ppymilter.server.PpyMilter):
             f.write('blacklisted:     {!r}\n'.format(self.blacklisted))
             f.write('authenticated:   {!r}\n'.format(self.authenticated))
 
-            f.write('X-Blam-Report-spamscore: {}\n'.format(self.spamscore))
             f.write('X-Blam-Report-greetings: {}\n'.format(self.greetings))
-            f.write('X-Blam-Report-spamwords: {}\n'.format(self.spamwords))
-            f.write('X-Blam-Report-spamurls: {}\n'.format(self.spamurls))
 
 
     def OnEom(self):
@@ -3037,7 +2999,6 @@ class BlamMilter(ppymilter.server.PpyMilter):
         # NOTE! this will be affected by multiple messages per session, needs to be fixed
         # we need to have a per-message post-session function
         if self.do_db_store and self.client_address and self.client_port:
-            self.printme('doing DB store')
             self.db_store()
 
         #if not self.left_early and not (self.was_kicked or (self.hostname in self.pre_approved)):
@@ -3048,7 +3009,7 @@ class BlamMilter(ppymilter.server.PpyMilter):
             qid = 'i' in self.stored_macros and self.stored_macros['i'] or "q<?4>"
             self.cams_notify('{} \x1d\x02\x0313{}\x0f \u22b3 {}; \x0313{},{},{}\x0f'.format(
                 qid,
-                self.mail_from or self.hostname,
+                self._from or self.hostname,
                 self.recipients or (self.helo and self.helo[-1] or self.client_address),
                 self.mta_code,
                 self.mta_short,
@@ -3099,9 +3060,7 @@ class BlamMilter(ppymilter.server.PpyMilter):
                                 d = k[9:]
                                 redirect_per_domain[d] = [x for x in arfc[k].replace(',',' ').split(' ') if x]
 
-                        self.printme('redirect_per_domain set to: {}'.format(redirect_per_domain), console=True)
-
-                        self.printme('recipients: {}'.format(self.stored_recipients), console=True)
+                        self.printme('recipients: {}'.format(self.stored_recipients))
 
                         macros           = self.macros
                         mail_from        = macros['{mail_addr}']
@@ -3113,7 +3072,7 @@ class BlamMilter(ppymilter.server.PpyMilter):
                         else:
                             reporting_domain = '@' in rcpt_to[0] and rcpt_to[0].split('@')[1]
 
-                        self.printme('reporting_domain is {}'.format(reporting_domain), console=True)
+                        self.printme('reporting_domain is {}'.format(reporting_domain))
 
                         subject = self.subject_chad or '<message-blocked-before-body-sent>'
 
@@ -3156,10 +3115,10 @@ class BlamMilter(ppymilter.server.PpyMilter):
                                 if not redirect:
                                     redirect = redirect_per_domain.get('+')
 
-                            self.printme('set redirectTo={}'.format(redirect), console=True)
+                            self.printme('set redirectTo={}'.format(redirect))
 
                             if not self.unittest:
-                                if redirect:
+                                if redirect: # still heavily testing this so ONLY send to redirects
                                     ar.send(redirectTo=redirect)
                                 self.printme('ARF report sent to {}'.format(ar.abuse_contacts), console=True)
                             else:
@@ -3171,6 +3130,8 @@ class BlamMilter(ppymilter.server.PpyMilter):
                         self.printme('{}'.format(traceback.format_exc(10)), console=True)
 
         self._summary_report()
+
+        self._purge_old_files()
 
         if self.iolog:
             # in very rare situations, we have a connect and immediate close with no client info
@@ -3186,8 +3147,6 @@ class BlamMilter(ppymilter.server.PpyMilter):
         if self.logname:
             self.logname.close()
             self.logname = None
-
-        self._purge_old_files()
 
         return # pointedly don't return anything
 

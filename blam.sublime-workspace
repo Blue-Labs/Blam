@@ -1,0 +1,623 @@
+{
+	"auto_complete":
+	{
+		"selected_items":
+		[
+			[
+				"D",
+				"DEBUG"
+			],
+			[
+				"redir",
+				"redirect_per_domain"
+			],
+			[
+				"utf",
+				"utf-8"
+			],
+			[
+				"fuck",
+				"fuckhead"
+			],
+			[
+				"check_d",
+				"check_dnsbl_by_name"
+			],
+			[
+				"get_con",
+				"get_content_subtype"
+			],
+			[
+				"ensur",
+				"ensure_positive_penalty"
+			],
+			[
+				"ensu",
+				"ensure_positive_penalty"
+			],
+			[
+				"grace",
+				"grace_score"
+			],
+			[
+				"stored",
+				"stored_headers"
+			],
+			[
+				"reci",
+				"stored_recipients"
+			],
+			[
+				"blu",
+				"blue-labs"
+			],
+			[
+				"rcp",
+				"rcpt_to"
+			],
+			[
+				"pass",
+				"passphrase"
+			],
+			[
+				"configpar",
+				"configparser"
+			],
+			[
+				"puni",
+				"early_punish"
+			],
+			[
+				"subject",
+				"subject_chad"
+			],
+			[
+				"penal",
+				"penalties"
+			],
+			[
+				"mta",
+				"mta_short"
+			],
+			[
+				"cli",
+				"client_address"
+			],
+			[
+				"print_",
+				"print_as_pairs"
+			],
+			[
+				"repor",
+				"reported_domain"
+			],
+			[
+				"repo",
+				"reporting_domain"
+			],
+			[
+				"gra",
+				"grace_score"
+			],
+			[
+				"stor",
+				"stored_payload"
+			],
+			[
+				"early",
+				"early_punish"
+			],
+			[
+				"white",
+				"whitelisted"
+			],
+			[
+				"h",
+				"helo"
+			]
+		]
+	},
+	"buffers":
+	[
+		{
+			"file": "blam.py",
+			"settings":
+			{
+				"buffer_size": 153884,
+				"line_ending": "Unix"
+			}
+		},
+		{
+			"file": "Blam.conf",
+			"settings":
+			{
+				"buffer_size": 2565,
+				"line_ending": "Unix"
+			}
+		},
+		{
+			"file": "unittest.py",
+			"settings":
+			{
+				"buffer_size": 634,
+				"line_ending": "Unix"
+			}
+		},
+		{
+			"file": "blam.sublime-project",
+			"settings":
+			{
+				"buffer_size": 277,
+				"line_ending": "Unix"
+			}
+		}
+	],
+	"build_system": "Run with args",
+	"build_system_choices":
+	[
+		[
+			[
+				[
+					"Packages/Python/Python.sublime-build",
+					""
+				],
+				[
+					"Packages/Python/Python.sublime-build",
+					"Syntax Check"
+				]
+			],
+			[
+				"Packages/Python/Python.sublime-build",
+				""
+			]
+		],
+		[
+			[
+				[
+					"Run with args",
+					""
+				],
+				[
+					"Packages/Python/Python.sublime-build",
+					""
+				],
+				[
+					"Packages/Python/Python.sublime-build",
+					"Syntax Check"
+				]
+			],
+			[
+				"Run with args",
+				""
+			]
+		]
+	],
+	"build_varint": "",
+	"command_palette":
+	{
+		"height": 376.0,
+		"last_filter": "Pack",
+		"selected_items":
+		[
+			[
+				"Pack",
+				"Package Control: Upgrade Package"
+			],
+			[
+				"",
+				"Package Control: List Packages"
+			],
+			[
+				"Package",
+				"Preferences: Browse Packages"
+			],
+			[
+				"Package Control: ",
+				"Package Control: List Packages"
+			],
+			[
+				"install",
+				"Package Control: Install Package"
+			],
+			[
+				"add",
+				"Package Control: Add Repository"
+			],
+			[
+				"gpu",
+				"Git: Push"
+			]
+		],
+		"width": 663.0
+	},
+	"console":
+	{
+		"height": 216.0,
+		"history":
+		[
+			"import urllib.request,os,hashlib; h = '2915d1851351e5ee549c20394736b442' + '8bc59f460fa1548d1514676163dafc88'; pf = 'Package Control.sublime-package'; ipp = sublime.installed_packages_path(); urllib.request.install_opener( urllib.request.build_opener( urllib.request.ProxyHandler()) ); by = urllib.request.urlopen( 'http://packagecontrol.io/' + pf.replace(' ', '%20')).read(); dh = hashlib.sha256(by).hexdigest(); print('Error validating download (got %s instead of %s), please try manual install' % (dh, h)) if dh != h else open(os.path.join( ipp, pf), 'wb' ).write(by)",
+			"import urllib.request,os,hashlib; h = 'eb2297e1a458f27d836c04bb0cbaf282' + 'd0e7a3098092775ccb37ca9d6b2e4b7d'; pf = 'Package Control.sublime-package'; ipp = sublime.installed_packages_path(); urllib.request.install_opener( urllib.request.build_opener( urllib.request.ProxyHandler()) ); by = urllib.request.urlopen( 'http://packagecontrol.io/' + pf.replace(' ', '%20')).read(); dh = hashlib.sha256(by).hexdigest(); print('Error validating download (got %s instead of %s), please try manual install' % (dh, h)) if dh != h else open(os.path.join( ipp, pf), 'wb' ).write(by)",
+			"import os; os.system('git --version')",
+			"import urllib.request,os,hashlib; h = '7183a2d3e96f11eeadd761d777e62404' + 'e330c659d4bb41d3bdf022e94cab3cd0'; pf = 'Package Control.sublime-package'; ipp = sublime.installed_packages_path(); urllib.request.install_opener( urllib.request.build_opener( urllib.request.ProxyHandler()) ); by = urllib.request.urlopen( 'http://sublime.wbond.net/' + pf.replace(' ', '%20')).read(); dh = hashlib.sha256(by).hexdigest(); print('Error validating download (got %s instead of %s), please try manual install' % (dh, h)) if dh != h else open(os.path.join( ipp, pf), 'wb' ).write(by)",
+			"by = urllib.request.urlopen( 'http://sublime.wbond.net/' + pf.replace(' ', '%20')).read()",
+			"urllib.request.install_opener( urllib.request.build_opener( urllib.request.ProxyHandler()) )",
+			"ipp = sublime.installed_packages_path()",
+			"pf = 'Package Control.sublime-package'",
+			"h = '7183a2d3e96f11eeadd761d777e62404e330c659d4bb41d3bdf022e94cab3cd0'",
+			"import urllib.request,os,hashlib"
+		]
+	},
+	"distraction_free":
+	{
+		"menu_visible": true,
+		"show_minimap": false,
+		"show_open_files": false,
+		"show_tabs": false,
+		"side_bar_visible": false,
+		"status_bar_visible": false
+	},
+	"expanded_folders":
+	[
+		"/home/david/Desktop/Projects/Blam"
+	],
+	"file_history":
+	[
+		"/home/david/.config/sublime-text-3/Packages/Package Control/Package Control.sublime-settings",
+		"/home/david/Desktop/Projects/Blam/blam.sublime-project",
+		"/home/david/Desktop/Documents/Verio/git/common-config/etc/resolv.conf",
+		"/home/david/Desktop/Projects/Blam/blam.py",
+		"/home/david/Desktop/Documents/Verio/git/common-config/etc/iptables/gen4-base.rules",
+		"/home/david/Desktop/Documents/Verio/git/common-config/etc/ssh/sshd_config",
+		"/home/david/Desktop/Documents/Verio/git/common-config/etc/issue.seceng",
+		"/home/david/Desktop/Documents/Verio/git/common-config/etc/motd",
+		"/home/david/.config/sublime-text-3/Packages/User/Default (Linux).sublime-keymap",
+		"/home/david/.config/sublime-text-3/Packages/Default/Default (Linux).sublime-keymap",
+		"/usr/src/Mailpile/mailpile/conn_brokers.py",
+		"/usr/src/Mailpile/mailpile/mailboxes/__init__.py",
+		"/usr/src/Mailpile/mailpile/mailboxes/macmail.py",
+		"/usr/src/Mailpile/mailpile/mailboxes/gmvault.py",
+		"/home/david/Desktop/Projects/python-pam/.gitignore",
+		"/home/david/Desktop/Projects/python-pam/pam.py",
+		"/home/david/Desktop/Projects/python-pam/ChangeLog",
+		"/home/david/Desktop/Projects/python-pam/PKGBUILD",
+		"/home/david/.config/sublime-text-3/Packages/User/Preferences.sublime-settings",
+		"/home/david/.config/sublime-text-3/Packages/Default/Preferences.sublime-settings",
+		"/tmp/api.security-carpet.com.py"
+	],
+	"find":
+	{
+		"height": 34.0
+	},
+	"find_in_files":
+	{
+		"height": 0.0,
+		"where_history":
+		[
+		]
+	},
+	"find_state":
+	{
+		"case_sensitive": false,
+		"find_history":
+		[
+			"for mjh",
+			"-10",
+			"encoding is:",
+			"spf.query",
+			"ansi",
+			"spf",
+			"printme",
+			"problem resolving",
+			"arfcp",
+			"loglevel",
+			"No MX ",
+			"test_tld",
+			"helo",
+			"startup_",
+			"test_tld",
+			"SPF",
+			"a",
+			"sender_host1",
+			"_sni",
+			"check_dnsbl_by_ip",
+			"named",
+			"prefs",
+			"check_dnsbl_by_ip",
+			"print_as_pairs",
+			"DNSBL:",
+			"mod_",
+			"PidFile",
+			"passphrase_cb",
+			"update_tlds",
+			"-",
+			"name",
+			"filter-name",
+			"-",
+			"timeout",
+			"nameservers",
+			"filter-name",
+			"BeautifulSoup",
+			"Beau",
+			"x",
+			"_document",
+			"BeautifulSoup",
+			"src",
+			"_body_lower",
+			"BeautifulSoup",
+			"wish to",
+			"is_bluelabs_ip",
+			"print_as",
+			"s3db",
+			".connect",
+			"find_abuse_contacts",
+			"e.find_abuse_contacts",
+			"e.",
+			"arf",
+			"ARF",
+			"arf",
+			"wblist",
+			"self.macros",
+			"encoding is",
+			")\n",
+			"self.port",
+			"self.address",
+			"self.recipients",
+			"payload",
+			"css ",
+			".punish",
+			"punish_now",
+			".punish",
+			"get_grace_score",
+			"get_grace",
+			"unknown",
+			"ymlf",
+			"self.helo",
+			"?4",
+			"punish",
+			"response",
+			"dfw",
+			"check_dnsbl",
+			"Spamh",
+			"rfc822"
+		],
+		"highlight": true,
+		"in_selection": false,
+		"preserve_case": false,
+		"regex": false,
+		"replace_history":
+		[
+		],
+		"reverse": false,
+		"show_context": true,
+		"use_buffer2": true,
+		"whole_word": false,
+		"wrap": true
+	},
+	"groups":
+	[
+		{
+			"selected": 0,
+			"sheets":
+			[
+				{
+					"buffer": 0,
+					"file": "blam.py",
+					"semi_transient": false,
+					"settings":
+					{
+						"buffer_size": 153884,
+						"regions":
+						{
+						},
+						"selection":
+						[
+							[
+								88976,
+								88976
+							]
+						],
+						"settings":
+						{
+							"incomplete_sync": null,
+							"remote_loading": false,
+							"synced": false,
+							"syntax": "Packages/Python/Python.tmLanguage",
+							"tab_size": 4,
+							"translate_tabs_to_spaces": true
+						},
+						"translation.x": 0.0,
+						"translation.y": 30778.0,
+						"zoom_level": 1.0
+					},
+					"stack_index": 0,
+					"type": "text"
+				},
+				{
+					"buffer": 1,
+					"file": "Blam.conf",
+					"semi_transient": true,
+					"settings":
+					{
+						"buffer_size": 2565,
+						"regions":
+						{
+						},
+						"selection":
+						[
+							[
+								0,
+								0
+							]
+						],
+						"settings":
+						{
+							"incomplete_sync": null,
+							"remote_loading": false,
+							"synced": false,
+							"syntax": "Packages/Text/Plain text.tmLanguage"
+						},
+						"translation.x": 0.0,
+						"translation.y": 0.0,
+						"zoom_level": 1.0
+					},
+					"stack_index": 3,
+					"type": "text"
+				},
+				{
+					"buffer": 2,
+					"file": "unittest.py",
+					"semi_transient": false,
+					"settings":
+					{
+						"buffer_size": 634,
+						"regions":
+						{
+						},
+						"selection":
+						[
+							[
+								367,
+								367
+							]
+						],
+						"settings":
+						{
+							"incomplete_sync": null,
+							"remote_loading": false,
+							"synced": false,
+							"syntax": "Packages/Python/Python.tmLanguage"
+						},
+						"translation.x": 0.0,
+						"translation.y": 55.0,
+						"zoom_level": 1.0
+					},
+					"stack_index": 2,
+					"type": "text"
+				},
+				{
+					"buffer": 3,
+					"file": "blam.sublime-project",
+					"semi_transient": false,
+					"settings":
+					{
+						"buffer_size": 277,
+						"regions":
+						{
+						},
+						"selection":
+						[
+							[
+								204,
+								204
+							]
+						],
+						"settings":
+						{
+							"incomplete_sync": null,
+							"remote_loading": false,
+							"synced": false,
+							"syntax": "Packages/JavaScript/JSON.tmLanguage",
+							"tab_size": 3,
+							"translate_tabs_to_spaces": true
+						},
+						"translation.x": 0.0,
+						"translation.y": 0.0,
+						"zoom_level": 1.0
+					},
+					"stack_index": 1,
+					"type": "text"
+				}
+			]
+		}
+	],
+	"incremental_find":
+	{
+		"height": 23.0
+	},
+	"input":
+	{
+		"height": 31.0
+	},
+	"layout":
+	{
+		"cells":
+		[
+			[
+				0,
+				0,
+				1,
+				1
+			]
+		],
+		"cols":
+		[
+			0.0,
+			1.0
+		],
+		"rows":
+		[
+			0.0,
+			1.0
+		]
+	},
+	"menu_visible": true,
+	"output.exec":
+	{
+		"height": 399.0
+	},
+	"output.find_results":
+	{
+		"height": 0.0
+	},
+	"output.sftp":
+	{
+		"height": 0.0
+	},
+	"pinned_build_system": "Run with args",
+	"project": "blam.sublime-project",
+	"replace":
+	{
+		"height": 42.0
+	},
+	"save_all_on_build": true,
+	"select_file":
+	{
+		"height": 0.0,
+		"last_filter": "",
+		"selected_items":
+		[
+		],
+		"width": 0.0
+	},
+	"select_project":
+	{
+		"height": 480.0,
+		"last_filter": "",
+		"selected_items":
+		[
+		],
+		"width": 364.0
+	},
+	"select_symbol":
+	{
+		"height": 0.0,
+		"last_filter": "",
+		"selected_items":
+		[
+		],
+		"width": 0.0
+	},
+	"selected_group": 0,
+	"settings":
+	{
+	},
+	"show_minimap": false,
+	"show_open_files": false,
+	"show_tabs": true,
+	"side_bar_visible": true,
+	"side_bar_width": 258.0,
+	"status_bar_visible": true,
+	"template_settings":
+	{
+	}
+}

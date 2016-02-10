@@ -1,0 +1,17 @@
+{
+	"folders":
+	[
+		{
+			"path": "."
+		}
+	],
+   "build_systems":
+   [
+      {
+         "name": "Run with args",
+         "cmd": ["python", "$file", "/tmp/75029.eml"],
+         "target": "ansi_color_build",
+         "syntax": "Packages/ANSIescape/ANSI.tmLanguage"
+      }
+   ]
+}
