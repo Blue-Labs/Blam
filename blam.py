@@ -88,8 +88,6 @@ CREATE TABLE blam_headers (
 """
 
 import asyncore
-import chardet
-import codecs
 import configparser
 import cssutils
 import daemon
@@ -115,7 +113,6 @@ import re
 import signal
 import socket
 import spf
-import sqlite3
 import ssl
 import string
 import struct
@@ -393,7 +390,7 @@ spam_dict = {'success':1, 'market':2, 'marketing':2, 'markting':2, 'merchant':1,
 
              # tiny tiny text/none
              'font-size:\s*xx-small;':10,
-             'display:\s*none':5,
+             'display:\s*none':1,
 
              # well known spam url format
              '/20621320/vuxtxu':50,
@@ -2506,8 +2503,11 @@ class BlamMilter(ppymilter.server.PpyMilter):
                             matches = {False:0, True:0}
                             for rule in _cssrules:
                               for selector in rule.selectorList:
-                                cssselector = CSSSelector(selector.selectorText)
-                                matches[len(cssselector.evaluate(_xmldoc))>0] += 1
+                                try:
+                                    cssselector = CSSSelector(selector.selectorText)
+                                    matches[len(cssselector.evaluate(_xmldoc))>0] += 1
+                                except: # there are a few conditions such as pseudo elements, that cssutils doesn't support
+                                    pass
 
                             if matches[True] + matches[False]:
                                 fr = matches[True] and matches[True] or 1 # don't divide by zero :)
@@ -2841,10 +2841,9 @@ class BlamMilter(ppymilter.server.PpyMilter):
                 if self.client_address and not self.early_punish:
                     self.mod_dfw_score(5, 'left early/kicked/not 250/dfw>grace')
                     self.printme('notifying DFW, score is {}'.format(self.dfw_penalty))
-                    reasons.append('session ended by: abrupt:{}, kicked:{}, 250:{}'.format(self.left_early, self.was_kicked, mta_code))
                     adr = self.client_address.startswith('IPv6') and self.client_address[5:] or self.client_address
 
-                    reasons = [ x.replace('\033[31m☠\033[0m', '☠') for x in reasons if x ]
+                    reasons = [ x.replace('\x1b[31m☠\x1b[0m', '☠') for x in reasons if x ]
                     reasons = [ re.sub(r'☠\s\[\d{4}-\d\d-\d\d\s\d\d:\d\d:\d\d\.\d+\]\s+', '', x) for x in reasons ]
                     reasons = [ x.replace('See https://blue-labs.org/blocked_mail/index.html','') for x in reasons ]
                     reasons = [ x.strip() for x in reasons ]
