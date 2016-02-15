@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 
-__version__  = '3.0.16'
+__version__  = '3.0.18'
 __author__   = 'David Ford <david@blue-labs.org>'
 __email__    = 'david@blue-labs.org'
-__date__     = '2016-Feb-8 19:19E'
+__date__     = '2016-Feb-15 17:57E'
 __license__  = 'Apache 2.0'
 
 """
@@ -936,7 +936,7 @@ class BlamMilter(ppymilter.server.PpyMilter):
         if unittest:
             self.dfw = VoidDFW()
         if self.dfw:
-            self.dfw._logger       = self.printme
+            self.dfw._logger.set_printer(self.printme)
             self.dfw._logparent    = self
 
         # under certain conditions, our instance may exist for a very long if someone is trying a DoS attack
@@ -2300,6 +2300,11 @@ class BlamMilter(ppymilter.server.PpyMilter):
                 x = getaddresses([self._from])[0][1]
             except:
                 x = None
+
+            # allow Reply-To to be used as _From such as when a 3rd party payment processor
+            # operates on behalf of a whitelisted entity
+            if 'Reply-To' in self.headers:
+                _f += self.headers['Reply-To']
 
             _f = sorted(set([y for y in {envfrom, x} if y]))
 
