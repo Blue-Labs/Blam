@@ -1277,7 +1277,7 @@ class BlamMilter(ppymilter.server.PpyMilter):
                   }
 
         addr = str(dns.reversename.from_address(addr)).replace('.in-addr.arpa.','')
-        self.printme('querying for {}'.format(addr))
+        self.printme('query by ip for {}'.format(addr))
         response = []
         answers=[]
 
@@ -1315,8 +1315,19 @@ class BlamMilter(ppymilter.server.PpyMilter):
                     '127.0.1.0':'Spamhaus Domain Blocklist',
                   }
 
+        # see if we got an IP, [1.2.3.4] or [IPv6:xx:xx:...]
+        if addr[0]=='[' and addr[1]==']':
+            try:
+                addr=addr[1:-1]
+                if addr[:5].lower() == 'ipv6:':
+                    addr = addr[:5]
+                netaddr.IPAddress(addr)
+                return check_dnsbl_by_ip(addr)
+            except:
+                pass
+
         q = addr + '.zen.spamhaus.org.'
-        self.printme('querying for {}'.format(q))
+        self.printme('query by name for {}'.format(q))
         response = []
         answers=[]
 
@@ -1987,20 +1998,21 @@ class BlamMilter(ppymilter.server.PpyMilter):
         # there is no From yet in startup checks
         k,h ='MAIL FROM',self.mail_from
         self.printme('{} is: {}'.format(k,h), console=True)
-        _=None
-        v = h[1]
-        if len(v)==2:
-            v = v[1]
-            try:
-                netaddr.IPAddress(v)
-                if not v in rfc1918:
-                    _ = self.check_dnsbl_by_ip(v)
-            except:
-                _ = self.check_dnsbl_by_name(v)
+        if h:
+            _=None
+            v = h[1]
+            if len(v)==2:
+                v = v[1]
+                try:
+                    netaddr.IPAddress(v)
+                    if not v in rfc1918:
+                        _ = self.check_dnsbl_by_ip(v)
+                except:
+                    _ = self.check_dnsbl_by_name(v)
 
-            if _:
-                _ = '{}:{} dname in DNSBL ({}): '.format(k,v) + ', '.join(_)
-                self.mod_dfw_score(self.dfw.grace_score+1, _, ensure_positive_penalty=True)
+                if _:
+                    _ = '{}:{} dname in DNSBL ({}): '.format(k,v) + ', '.join(_)
+                    self.mod_dfw_score(self.dfw.grace_score+1, _, ensure_positive_penalty=True)
 
 
     def _spf_check(self, i, s, h):
