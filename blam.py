@@ -2558,88 +2558,98 @@ class BlamMilter(ppymilter.server.PpyMilter):
 
                             # particular URL patterns
                             # applies to visual text and HREF elements
-                            # this section doesn't use _texts or _hrefs yet
-                            burl_list = []
-                            for url in re.findall('a href="([^"]+)"', body):
-                                _l = len(url.split('~'))
-                                if _l > 2:
-                                    burl_list.append(_l)
-                            if burl_list:
-                                __ = sorted(set(burl_list))
-                                for _url in __:
-                                    _c = len([x for x in burl_list if x == _url])
-                                    self.mod_dfw_score(3*_c, 'url pattern foo1~...~fooN occurs {} times: {}'.format(_c, _url))
+                            for _url in sorted(set([x['href'] for x in _extlinks if len(x['href'].split('~')) > 2])):
+                                _c = len([x for x in _extlinks if x['href'] == _url])
+                                self.mod_dfw_score(3*_c, 'url pattern foo1~...~fooN occurs {} times: {}'.format(_c, _url))
 
-                    # these tests apply to both text and html
-                    # applies to visual text
-                    for keyword,score in spam_dict.items():
-                        m = re.findall(r'\b'+keyword+r'\b', body, flags=re.I)
-                        if m:
-                            self.mod_dfw_score(len(m)*score, '{}: f({})*{}={}'.format(keyword.replace('%','%%'), score, len(m), len(m)*score))
+                            # applies to visual text
+                            for _part in _texts:
+                                for keyword,score in spam_dict.items():
+                                    m = re.findall(r'\b'+keyword+r'\b', _part, flags=re.I)
+                                    if m:
+                                        self.mod_dfw_score(len(m)*score, '{}: f({})*{}={}'.format(keyword.replace('%','%%'), score, len(m), len(m)*score))
+
+                    else:
+                        # repeat some of the tests found in html section
+                        burl_list = []
+                        for url in re.findall('a href="([^"]+)"', body):
+                            _l = len(url.split('~'))
+                            if _l > 2:
+                                burl_list.append(_l)
+                        if burl_list:
+                            __ = sorted(set(burl_list))
+                            for _url in __:
+                                _c = len([x for x in burl_list if x == _url])
+                                self.mod_dfw_score(3*_c, 'url pattern foo1~...~fooN occurs {} times: {}'.format(_c, _url))
+
+                        # applies to visual text
+                        for keyword,score in spam_dict.items():
+                            m = re.findall(r'\b'+keyword+r'\b', body, flags=re.I)
+                            if m:
+                                self.mod_dfw_score(len(m)*score, '{}: f({})*{}={}'.format(keyword.replace('%','%%'), score, len(m), len(m)*score))
+
+                        # applies to visual text
+                        _ = len(re.findall('(?:\s/\w+){5,}', body))
+                        if _ > 5:
+                            self.mod_dfw_score(_, 'repeat (/word){5,}+ pattern')
+
+                        # applies to visual text
+                        # yes, this will partly duplicate the test in the text/html section
+                        _ = len(re.findall('&#\d+;', body))
+                        if _ > 10:
+                            self.mod_dfw_score(_/2, '&#\\d+; matches')
+
+                        # applies to visual text
+                        wordlist  = body.split()
+                        wordcount = Counter(wordlist)
+                        factor    = len(body) *.005
+                        for w,c in [ (w,c) for w,c in wordcount.most_common(10) if c >20 and len(w) >3]:
+                            # skip really damn common shit that m$ spews in html
+                            skip=False
+                            for kw in ('tahoma','verdana','sans-serif','font-size','font-family','webkit','mso-','Lucida',
+                                       'line-height','helvetica','arial','freesans','sans','color','collapse','cellspacing',
+                                       'align=','style=','target=','border=','cellpadding=','class=','background:',
+                                       'background-position:',
+                                       ):
+                                if kw in w.lower():
+                                    skip=True
+                                    break
+                            if re.search('\(~\)\d+\.\d+\.\d+', w):
+                                skip = True
+
+                            if skip:
+                                continue
+
+                            if w[0] == '<' and w[-1] == '>':
+                                continue
+
+                            f = round(c/factor*len(w), 2)
+                            if f < 2:
+                                continue
+                            label = 'word freq: {}'.format(w)
+                            self.mod_dfw_score(f, '{}: f({})*{}={}'.format(label, round(f/c,3),c,f))
 
 
-                    # applies to visual text
-                    _ = len(re.findall('(?:\s/\w+){5,}', body))
-                    if _ > 5:
-                        self.mod_dfw_score(_, 'repeat (/word){5,}+ pattern')
+                        # url checks for all
+                        # applies to visual text and HREF elements
+                        udict = {
+                                'http://[a-z0-9_\.-]+/[a-f0-9_-]+/[CV]/':5,
+                                'http://[a-z0-9_\.-]+/.*/unsub.cgi':2,
+                                }
 
-                    # applies to visual text
-                    # yes, this will partly duplicate the test in the text/html section
-                    _ = len(re.findall('&#\d+;', body))
-                    if _ > 10:
-                        self.mod_dfw_score(_/2, '&#\\d+; matches')
+                        sep=r'\b'
+                        if isinstance(body, bytes):
+                            sep=br'\b'
+                            for k,v in udict.items():
+                                if isinstance(k, str):
+                                    udict[k.encode()] = v
+                                    del(udict[k])
 
-                    # applies to visual text
-                    wordlist  = body.split()
-                    wordcount = Counter(wordlist)
-                    factor    = len(body) *.005
-                    for w,c in [ (w,c) for w,c in wordcount.most_common(10) if c >20 and len(w) >3]:
-                        # skip really damn common shit that m$ spews in html
-                        skip=False
-                        for kw in ('tahoma','verdana','sans-serif','font-size','font-family','webkit','mso-','Lucida',
-                                   'line-height','helvetica','arial','freesans','sans','color','collapse','cellspacing',
-                                   'align=','style=','target=','border=','cellpadding=','class=','background:',
-                                   'background-position:',
-                                   ):
-                            if kw in w.lower():
-                                skip=True
-                                break
-                        if re.search('\(~\)\d+\.\d+\.\d+', w):
-                            skip = True
-
-                        if skip:
-                            continue
-
-                        if w[0] == '<' and w[-1] == '>':
-                            continue
-
-                        f = round(c/factor*len(w), 2)
-                        if f < 2:
-                            continue
-                        label = 'word freq: {}'.format(w)
-                        self.mod_dfw_score(f, '{}: f({})*{}={}'.format(label, round(f/c,3),c,f))
-
-
-                    # url checks for all
-                    # applies to visual text and HREF elements
-                    udict = {
-                            'http://[a-z0-9_\.-]+/[a-f0-9_-]+/[CV]/':5,
-                            'http://[a-z0-9_\.-]+/.*/unsub.cgi':2,
-                            }
-
-                    sep=r'\b'
-                    if isinstance(body, bytes):
-                        sep=br'\b'
-                        for k,v in udict.items():
-                            if isinstance(k, str):
-                                udict[k.encode()] = v
-                                del(udict[k])
-
-                    # applies to visual text and HREF elements
-                    for keyword,score in udict.items():
-                        m = re.findall(sep+keyword+sep, body, flags=re.I)
-                        if m:
-                            self.mod_dfw_score(len(m)*score, 'spamurl: {}, f({})*{}'.format(keyword,score,len(m)))
+                        # applies to visual text and HREF elements
+                        for keyword,score in udict.items():
+                            m = re.findall(sep+keyword+sep, body, flags=re.I)
+                            if m:
+                                self.mod_dfw_score(len(m)*score, 'spamurl: {}, f({})*{}'.format(keyword,score,len(m)))
 
 
     def OnHeader(self, cmd, lhs, rhs):
