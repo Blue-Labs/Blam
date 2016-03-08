@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 
-__version__  = '3.0.18'
+__version__  = '3.0.19  '
 __author__   = 'David Ford <david@blue-labs.org>'
 __email__    = 'david@blue-labs.org'
-__date__     = '2016-Feb-15 17:57E'
+__date__     = '2016-Mar-8 13:50E'
 __license__  = 'Apache 2.0'
 
 """
@@ -15,7 +15,7 @@ __license__  = 'Apache 2.0'
 ##     2.  smtp callback verification
 ##     3.  reputation scoring
 ##     4.  make a last-seen column in prefs, update it when incoming matches
-##     5.  immediate NOTIFY for spam prefs changes
+##     5.  immediate NOTIFY for spam prefs changes instead of when instancing
 ##
 
 bugs:
@@ -206,7 +206,7 @@ ansime   = enumerate(ansiloop)
 wrapper  = textwrap.TextWrapper(initial_indent='', subsequent_indent=' '*16+ansi['bwhite']+'│  '+ansi['none'], width=180, expand_tabs=False, replace_whitespace=False)
 
 spam_dict = {'success':1, 'market':2, 'marketing':2, 'markting':2, 'merchant':1, 'sephora.fr':1, 'affipro':1, 'b2b':1,
-             'mailpalmaresduweb.com':1, 'replica':1, 'promotion':1, 'target':1, 'replica':1, 'freestuff':1,
+             'mailpalmaresduweb.com':1, 'replica':1, 'promotion':1, 'target':.25, 'replica':1, 'freestuff':1,
              'diversify':1, 'business':1, 'offers':1, 'offres':1, 'exclusive':2, 'confirm your':3, 'resolution':3,
              'exclusif':1, 'services':1, 'replica':1, 'promotion':1, 'exclusively here':5, 'last chance':5,
              'grow your':3, 'small business':2, 'funding':2, 'redeem':1, 'rewards':1, 'receepts':5, 'valid online':2,
@@ -290,13 +290,13 @@ spam_dict = {'success':1, 'market':2, 'marketing':2, 'markting':2, 'merchant':1,
              # removal instructions and "opt out here"
              'your privacy is important to us':5, 'update( \w+|) here':5, 'stop/forego':15, 'this-link':10,
              'go here to':15, 'visit here to':15, 'visit us here to':15, 'go here for':15, 'solicite':15, 'aqui':5, 'aquí':5,
-             'to be removed':10, 'message discharge instructions':10, 'unsubscribe':1.5, 'as unwanted':1, 'unsub.now':10,
+             'to be removed':10, 'message discharge instructions':10, 'unsubscribe':.5, 'as unwanted':1, 'unsub.now':10,
              'to not see messages form us':18, 'U-R-L':10, 'prefer not to receive future emails, Unsubscribe Here':5,
              'responder esta invitación':5, 'recibir actualizaciones al respecto':15, 'responda con el asunto':15,
              'para darse de baja de esta lista de suscripción':25, 'to now end':10, 'viewingads':10, '_go-here':10,
              'physicalmailing':10, 'your delete directions':8, 'suspension of mail\w*':10, 'cease any future correspondence':10,
              'halt future delivery':10, 'you can end mess':10, 'future e-notices':10, 'to stop receiving':8,
-             'to end information':10, 'inform us by letter':5, 'opt.?out':10, 'stop receiving messages':10, 'preferences':3,
+             'to end information':10, 'inform us by letter':5, 'opt.?out':10, 'stop receiving messages':10, 'preferences':.5,
              'this message was sent to':2, 'want to receive (these |)emails from us':2, 'end messsages':10, 'navigate here':5,
              'no desea recibir':10, 'list removal':5, 'sent to the wrong person':5, 'report spam':5, 'signed up in error':5,
              'remove at this location':10, 'from-future sends':10, 'remove-from sender':10, 'stop these messages':10,
@@ -2210,9 +2210,14 @@ class BlamMilter(ppymilter.server.PpyMilter):
                     self.mod_dfw_score(5, 'malformed recipient address: {!r}'.format(rhs))
 
             elif lhs in ('from', 'reply-to'):
-                rhs = getaddresses([rhs])[0][1]
-                if lhs == 'from':
-                    self._from = rhs
+                try:
+                    rhs_orig = rhs
+                    rhs = getaddresses([rhs])[0][1]
+                    if lhs == 'from':
+                        self._from = rhs
+                except:
+                    self.printme('Unable to extract addresses from getaddresses([{}])[0][1]'.format(rhs_orig), console=True)
+                    continue
 
                 res = self._spf_check(self.client_address, rhs, self.helo)
 
@@ -2270,12 +2275,13 @@ class BlamMilter(ppymilter.server.PpyMilter):
                     self.mod_dfw_score(5, 'spam blaster')
 
             # cumulative
-            for keyword,score in spam_dict.items():
-                m = re.findall(r'\b'+keyword+r'\b', rhs, flags=re.I)
-                if not m:
-                    m = re.findall(r'\W'+keyword+r'\W', rhs, flags=re.I)
-                if m:
-                    self.mod_dfw_score(len(m)*score, 'header({}) spamword({}) f({})*{}={}'.format(lhs, keyword, score, len(m), len(m)*score))
+            if not lhs in ('dkim-signature','list-unsubscribe'):
+                for keyword,score in spam_dict.items():
+                    m = re.findall(r'\b'+keyword+r'\b', rhs, flags=re.I)
+                    if not m:
+                        m = re.findall(r'\W'+keyword+r'\W', rhs, flags=re.I)
+                    if m:
+                        self.mod_dfw_score(len(m)*score, 'header({}) spamword({}) f({})*{}={}'.format(lhs, keyword, score, len(m), len(m)*score))
 
             # xxx-xxxx random letters headers
             if re.fullmatch('\w{2,4}[_-]\w{2,6}', lhs):
