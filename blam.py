@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 
-__version__  = '3.0.19  '
+__version__  = '3.0.21'
 __author__   = 'David Ford <david@blue-labs.org>'
 __email__    = 'david@blue-labs.org'
-__date__     = '2016-Mar-8 13:50E'
+__date__     = '2016-Mar-8 18:21E'
 __license__  = 'Apache 2.0'
 
 """
@@ -1393,7 +1393,9 @@ class BlamMilter(ppymilter.server.PpyMilter):
         # an MX record is not strictly required for an SMTP server but we have found that an amazing
         # amount of spam can be blocked simply by the lack of the sender having an MX record
         # don't penalize too much because the assumed default MX for a host or IP, is itself
-        self.mod_dfw_score(2, 'No MX servers found')
+        #
+        # penalty should be applied by the caller
+        return None
 
 
     def test_tld(self, tld):
@@ -1939,10 +1941,13 @@ class BlamMilter(ppymilter.server.PpyMilter):
         # resolves to abc.com, then it means the forger has complete control over the affected DNS. we should NOT trust
         # this situation.
         me = self.client_address.startswith('IPv6:') and self.client_address[5:] or self.client_address
-        if not [ x for x in answers if x == me]:
-            self.mod_dfw_score(10, 'DNS lookup of HELO greeting ({}) is {} and'
-                ' does not include the IP you came from: {}. See https://blue-labs.org/blocked_mail/index.html'
-                .format(helo, answers, self.client_address))
+
+        #if not [ x for x in answers if x == me]:
+        #    self.mod_dfw_score(10, 'DNS lookup of HELO greeting ({}) is {} and'
+        #        ' does not include the IP you came from: {}. See https://blue-labs.org/blocked_mail/index.html'
+        #        .format(helo, answers, self.client_address))
+        if me in answers:
+            return
 
         PTR_to_hosts = []
         # get the ptr records, turn each of them into hostnames, then look up each of those hostnames for PTR records..do they match me?
@@ -1963,12 +1968,14 @@ class BlamMilter(ppymilter.server.PpyMilter):
             self.printme('MX/A/AAAA lookup answers are: {}'.format(__mxh))
             answers2 += __mxh
 
-        if not answers2:
-            self.mod_dfw_score(10, 'DNS lookup of HELO greeting ({}) is {} and'
-                ' does not include the IP you came from: {}. See https://blue-labs.org/blocked_mail/index.html'
-                .format(helo, answers, self.client_address))
+        #if not answers2:
+        #    self.mod_dfw_score(10, 'DNS lookup of HELO greeting ({}) is {} and'
+        #        ' does not include the IP you came from: {}. See https://blue-labs.org/blocked_mail/index.html'
+        #        .format(helo, answers, self.client_address))
 
-        answers += answers2
+        answers = set(answers + answers2)
+        if me in answers:
+            return
 
         if not [x for x in answers2 if x == self.helo[-1]]:
             # once again, get all PTR records
@@ -1976,7 +1983,7 @@ class BlamMilter(ppymilter.server.PpyMilter):
                 __ptrs = self._resolve_ptr_ip_to_host(__ip)
                 __rdata = [x for x in __ptrs if not x in PTR_to_hosts]
                 if __rdata:
-                    self.printme('resolved two-evolution, additional known records: {} to {}'.format(__ip, __rdata), console=True)
+                    self.printme('resolved by 2nd evolution; additional known records: {} to {}'.format(__ip, __rdata), console=True)
                 PTR_to_hosts += __rdata
 
             if helo in PTR_to_hosts:
@@ -1987,12 +1994,16 @@ class BlamMilter(ppymilter.server.PpyMilter):
             for host in PTR_to_hosts:
                 answers3 += self._resolve_a_host_to_ip(host)
 
-            if me in answers3:
-                return
+            answers = set(answers + answers3)
 
-            self.mod_dfw_score(10, 'DNS lookup of HELO greeting ({}) is {} and'
-                ' does not include the IP you came from: {}. See https://blue-labs.org/blocked_mail/index.html'
-                .format(helo, answers, self.client_address))
+        if me in answers:
+            return
+
+        answers = sorted(answers)
+
+        self.mod_dfw_score(10, 'DNS lookup of HELO greeting ({}) is {} and'
+            ' does not include the IP you came from: {}. See https://blue-labs.org/blocked_mail/index.html'
+            .format(helo, answers, self.client_address))
 
         # check dnsbl for mail-from
         # there is no From yet in startup checks
@@ -2390,7 +2401,7 @@ class BlamMilter(ppymilter.server.PpyMilter):
 
     def _run_body_tests(self, msg):
         for part in msg.walk():
-            self.printme('checking body; {}/{}'.format(part.get_content_maintype(), part.get_content_subtype()), console=True)
+            self.printme('checking body; {}/{}'.format(part.get_content_maintype(), part.get_content_subtype()))
             if part.get_content_maintype() == 'multipart':
                 continue
 
@@ -2428,7 +2439,12 @@ class BlamMilter(ppymilter.server.PpyMilter):
                             self.printme('text/html part has no body?\n{!r}'.format(body))
                         else:
                             _body        = soup.body.decode()
-                            _xmldoc      = etree.HTML(body)
+                            try:
+                                _xmldoc  = etree.HTML(body)
+                            except:
+                                tmp_body = body.encode('utf-8')
+                                _xmldoc  = etree.HTML(tmp_body)
+
                             _stylesheets = [cssutils.parseString(e.text) for e in _xmldoc.getroottree().findall('//style')
                                                 if 'type' in e.attrib
                                                     and e.attrib['type']=='text/css'
@@ -2558,9 +2574,23 @@ class BlamMilter(ppymilter.server.PpyMilter):
 
                             # particular URL patterns
                             # applies to visual text and HREF elements
-                            for _url in sorted(set([x['href'] for x in _extlinks if len(x['href'].split('~')) > 2])):
-                                _c = len([x for x in _extlinks if x['href'] == _url])
-                                self.mod_dfw_score(3*_c, 'url pattern foo1~...~fooN occurs {} times: {}'.format(_c, _url))
+                            burls={}
+                            for _url in _extlinks:
+                                link = ('href' in _url and 'href') or ('src' in _url and 'src') or None
+                                if not link:
+                                    self.printme('href/src unexpectedly not in element: {}'.format(_url), console=True)
+                                    continue
+                                if not '~' in _url[link]:
+                                    continue
+                                if not len(_url[link].split('~')) > 2:
+                                    continue
+                                if not _url[link] in burls:
+                                    burls[_url[link]] = 0
+                                burls[_url[link]] += 1
+
+                            for _url in sorted(burls):
+                                _c = len(burls[_url])
+                                self.mod_dfw_score(3*_c, 'url pattern foo1~...~fooN; f({}})*{}={} occurs {} times: {}'.format(3, _c, 3*_c, _url))
 
                             # applies to visual text
                             for _part in _texts:
@@ -2568,6 +2598,11 @@ class BlamMilter(ppymilter.server.PpyMilter):
                                     m = re.findall(r'\b'+keyword+r'\b', _part, flags=re.I)
                                     if m:
                                         self.mod_dfw_score(len(m)*score, '{}: f({})*{}={}'.format(keyword.replace('%','%%'), score, len(m), len(m)*score))
+
+                                # spaced out characters
+                                _c = len(re.findall('\w\s{3,40}', _part))
+                                if _c > 5:
+                                    self.mod_dfw_score(len(_c), 'spaced out chars: f({})={}*{}'.format(1, _c, _c))
 
                     else:
                         # repeat some of the tests found in html section
@@ -2587,6 +2622,13 @@ class BlamMilter(ppymilter.server.PpyMilter):
                             m = re.findall(r'\b'+keyword+r'\b', body, flags=re.I)
                             if m:
                                 self.mod_dfw_score(len(m)*score, '{}: f({})*{}={}'.format(keyword.replace('%','%%'), score, len(m), len(m)*score))
+
+                        # spaced out characters (visual text)
+                        _grp = re.findall('\W\w\s{3,40}', body)
+                        _c = len(_grp)
+                        if _c > 5:
+                            self.printme('spaced out chars result: {}'.format(_grp), console=True)
+                            self.mod_dfw_score(_c, 'spaced out chars: f({})={}*{}'.format(1, _c, _c))
 
                         # applies to visual text
                         _ = len(re.findall('(?:\s/\w+){5,}', body))
