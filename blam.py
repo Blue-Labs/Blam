@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 
-__version__  = '3.0.21'
+__version__  = '3.0.22'
 __author__   = 'David Ford <david@blue-labs.org>'
 __email__    = 'david@blue-labs.org'
-__date__     = '2016-Mar-8 18:21E'
+__date__     = '2016-Mar-29 11:48E'
 __license__  = 'Apache 2.0'
 
 """
@@ -247,7 +247,7 @@ spam_dict = {'success':1, 'market':2, 'marketing':2, 'markting':2, 'merchant':1,
              'private jets?':4, 'crowded airports?':4,
 
              # deals
-             'savings':1, 'sponsored ads':5, 'last minute deals':3, 'great deals':2, 'save up to':2, 'featured ads':10,
+             'savings':1, 'sponsored ads':5, 'last minute deals':3, 'great deals':2, 'save up to':1.8, 'featured ads':10,
              'most affordable':4, 'affordable':1, 'view the offer':5, 'free trial':5, 'check prices':5, 'limited supply':10,
              'limited production':10, 'claim your':3, 'voucher':3, 'gift ?card':5, 'claim here':8, 'dr. oz':10,
              'dealerships':3, 'need to go':3,
@@ -349,7 +349,7 @@ spam_dict = {'success':1, 'market':2, 'marketing':2, 'markting':2, 'merchant':1,
              'free\s*shipping':3,
              'certificate':1, 'certificadas':5,
              'kidney beans':8, 'as seen on tv':50, 'coupon':2,
-             'end notification':8, 'specials end':3, '\d+% off':4, 'new and used':5,
+             'end notification':8, 'specials end':3, '\d+% off':2, 'new and used':5,
              'new or used car':10, 'at your local dealer':10, 'oil change':2, 'auto\s*repair':2,
 
              'new invention':5, 'selling out quickly':5, 'while( stock is|) available':5, "before it's too late":5,
@@ -970,6 +970,7 @@ class BlamMilter(ppymilter.server.PpyMilter):
         self.stored_recipients = []
         self.stored_headers    = []
         self.subject_chad      = ''
+        self.email_msg         = None
 
         # track session layers; normally only a depth of two, the initial connection and for
         # STARTTLS sessions, another layer. we'll use a dictionary that will normally have
@@ -997,6 +998,8 @@ class BlamMilter(ppymilter.server.PpyMilter):
 
         if self.macros:
             self.stored_macros      = self.macros
+        if self.email_msg:
+            self.stored_email_msg   = self.email_msg
 
         # reset on RSET
         self.macros                 = {}              # global, values can change during cycles
@@ -1010,6 +1013,7 @@ class BlamMilter(ppymilter.server.PpyMilter):
         self.mta_short              = None            # global
         self.mta_reason             = None            # global
         self.reasons                = []              # per message
+        self.email_msg              = None            # per message
 
         if not abort:
             self.client_address     = None            # global
@@ -1731,7 +1735,7 @@ class BlamMilter(ppymilter.server.PpyMilter):
 
         for mjh in ('itys.net','itriskltd.com'):
             if rcpt_hostname.lower().endswith(mjh):
-                self.printme('hardwiring whitelist due to {} in RCPT TO: {}'.format(mjh,rcpt_to), console=True)
+                self.printme('\x1b[1;37;42mhardwiring whitelist due to {} in RCPT TO: {}\x1b[0m'.format(mjh,rcpt_to), console=True)
                 self.whitelisted = True
                 break
 
@@ -1973,7 +1977,7 @@ class BlamMilter(ppymilter.server.PpyMilter):
         #        ' does not include the IP you came from: {}. See https://blue-labs.org/blocked_mail/index.html'
         #        .format(helo, answers, self.client_address))
 
-        answers = set(answers + answers2)
+        answers = list(set(answers + answers2))
         if me in answers:
             return
 
@@ -1994,12 +1998,12 @@ class BlamMilter(ppymilter.server.PpyMilter):
             for host in PTR_to_hosts:
                 answers3 += self._resolve_a_host_to_ip(host)
 
-            answers = set(answers + answers3)
+            answers = list(set(answers + answers3))
 
         if me in answers:
             return
 
-        answers = sorted(answers)
+        answers.sort()
 
         self.mod_dfw_score(10, 'DNS lookup of HELO greeting ({}) is {} and'
             ' does not include the IP you came from: {}. See https://blue-labs.org/blocked_mail/index.html'
@@ -2042,11 +2046,13 @@ class BlamMilter(ppymilter.server.PpyMilter):
         return res
 
 
-    def _run_header_tests(self, msg):
+    def _run_header_tests(self):
         headers = []
         relays  = []
         fuckheads = []
         self.printme('running header tests')
+
+        msg = self.email_msg
 
         # find emails relayed through known spammers
         lhs = 'Received'
@@ -2399,7 +2405,9 @@ class BlamMilter(ppymilter.server.PpyMilter):
             self.printme('{}'.format(traceback.format_exc(limit=5), console=True))
 
 
-    def _run_body_tests(self, msg):
+    def _run_body_tests(self):
+        msg = self.email_msg
+
         for part in msg.walk():
             self.printme('checking body; {}/{}'.format(part.get_content_maintype(), part.get_content_subtype()))
             if part.get_content_maintype() == 'multipart':
@@ -2473,7 +2481,7 @@ class BlamMilter(ppymilter.server.PpyMilter):
                                             pass
 
                                 if 1< hw <5:
-                                    self.mod_dfw_score(4, 'web bug found in {}'.format(e))
+                                    self.mod_dfw_score(2, 'web bug found in {}'.format(e))
 
                                 for attr in ('href','src'):
                                     if attr in e:
@@ -2602,7 +2610,7 @@ class BlamMilter(ppymilter.server.PpyMilter):
                                 # spaced out characters
                                 _c = len(re.findall('\w\s{3,40}', _part))
                                 if _c > 5:
-                                    self.mod_dfw_score(len(_c), 'spaced out chars: f({})={}*{}'.format(1, _c, _c))
+                                    self.mod_dfw_score(_c, 'spaced out chars: f({})={}*{}'.format(1, _c, _c))
 
                     else:
                         # repeat some of the tests found in html section
@@ -2775,9 +2783,9 @@ class BlamMilter(ppymilter.server.PpyMilter):
         if self.whitelisted or self.authenticated:
             return self.Continue()
 
-        msg = email.message_from_bytes(self.payload)
+        self.email_msg = email.message_from_bytes(self.payload)
 
-        _ = self._run_header_tests(msg)
+        _ = self._run_header_tests()
         if _:
             self.printme('header tests return: {}'.format(_))
 
@@ -2785,7 +2793,7 @@ class BlamMilter(ppymilter.server.PpyMilter):
         if _:
             self.printme('white_black_list return: {}'.format(_))
 
-        self._run_body_tests(msg)
+        self._run_body_tests()
 
         # double double triple triple check, whitelist itys.net and itriskltd.com
         # this should not be needed any more --
@@ -2795,7 +2803,7 @@ class BlamMilter(ppymilter.server.PpyMilter):
                 for rcpt_to in self.recipients:
                     if self.whitelisted: continue
                     if rcpt_to.endswith(mjh):
-                        self.printme('hardwiring whitelist due to {} in RCPT TO: {}'.format(mjh,rcpt_to), console=True)
+                        self.printme('\x1b[1;37;42mhardwiring whitelist due to {} in RCPT TO: {}\x1b[0m'.format(mjh,rcpt_to), console=True)
                         self.whitelisted = True
 
         if not (self.whitelisted or self.authenticated):
@@ -3107,6 +3115,7 @@ class BlamMilter(ppymilter.server.PpyMilter):
             else:
                 self.printme('Starting ARF', console=True)
 
+                '''
                 enc_p=False
                 for enc in ('utf-8','cp1252','latin-1','ascii'):
                     try:
@@ -3120,6 +3129,9 @@ class BlamMilter(ppymilter.server.PpyMilter):
                     self.printme("Unable to convert payload, can't continue with ARF", console=True)
 
                 else:
+                '''
+                enc_p = self.stored_email_msg
+                if 1:
                     try:
 
                         arfc = 'ARF' in self.config and self.config['ARF']
