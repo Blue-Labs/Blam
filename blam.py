@@ -971,6 +971,7 @@ class BlamMilter(ppymilter.server.PpyMilter):
         self.stored_headers    = []
         self.subject_chad      = ''
         self.email_msg         = None
+        self.stored_email_msg  = None
 
         # track session layers; normally only a depth of two, the initial connection and for
         # STARTTLS sessions, another layer. we'll use a dictionary that will normally have
