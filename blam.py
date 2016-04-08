@@ -3170,7 +3170,7 @@ class BlamMilter(ppymilter.server.PpyMilter):
                         ar = arf.ARF(subject=subject, reporting_domain=reporting_domain, smtpport=587, logger=self.printme)
                         ar.characterize('Source-IP', self.client_address)
                         ar.characterize('Source-Port', self.client_port)
-                        ar.characterize('Reporting-MTA', macros['j'])
+                        ar.characterize('Reporting-MTA', macros['{j}'])
                         ar.characterize('Original-Mail-From', mail_from)
                         ar.characterize('Original-Rcpt-To', rcpt_to)
 
