@@ -1179,8 +1179,8 @@ class BlamMilter(ppymilter.server.PpyMilter):
         with self.db.conn.cursor() as c:
             # check for notifications before trampling them
 
-            ts_milter = 'b' in self.macros and self.macros['b'] or self._datetime
-            qid       = 'i' in self.macros and self.macros['i'] or ''
+            ts_milter = '{b}' in self.macros and self.macros['{b}'] or self._datetime
+            qid       = '{i}' in self.macros and self.macros['{i}'] or ''
 
             (code,short,reason) = self.getFinis()
             if not code:
@@ -1816,8 +1816,8 @@ class BlamMilter(ppymilter.server.PpyMilter):
         helo = self.helo[-1]
         # apply a 0-10 penalty for sessions. 0 for full 256bit, 10 for no encryption
         _no_enc_penalty = 10
-        if 'cipher_bits' in self.macros:
-            _cb = int(self.macros.get('cipher_bits', '0'))/25.6
+        if '{cipher_bits}' in self.macros:
+            _cb = int(self.macros.get('{cipher_bits}', '0'))/25.6
             _no_enc_penalty -= _cb
             self.mod_dfw_score(_no_enc_penalty, 'cipher bits strength penalty')
 
@@ -2777,7 +2777,9 @@ class BlamMilter(ppymilter.server.PpyMilter):
         self.stored_payload = self.payload
         self.printme('payload size: {}'.format(len(self.stored_payload)))
 
-        fname = os.path.join(self.config['main']['spool dir'], 'interim', self.macros['i'])
+        self.print_as_pairs(self.macros, console=True)
+
+        fname = os.path.join(self.config['main']['spool dir'], 'interim', self.macros['{i}'])
         with open(fname, 'wb') as f:
             f.write(self.payload)
 
@@ -2810,7 +2812,7 @@ class BlamMilter(ppymilter.server.PpyMilter):
         if not (self.whitelisted or self.authenticated):
             if self.dfw_penalty >= self.dfw.grace_score:
                 self.was_kicked = True
-                qid = 'i' in self.macros and self.macros['i'] or "q<?3>"
+                qid = '{i}' in self.macros and self.macros['{i}'] or "q<?3>"
                 self.printme ('{} \x1d\x02\x0313{}\x0f \u22b3 {}; \x0313{}: scored {}\x0f'.format(qid, self._from, self.recipients, 'email too spammy', self.dfw_penalty))
                 return self.CustomReply(503, '[{}] message not acceptable'.format(self._datetime), 'SPAMMY_CONTENT')
 
@@ -2843,8 +2845,8 @@ class BlamMilter(ppymilter.server.PpyMilter):
         self.printme('#ABORT#')
 
         self.has_aborted = True
-        if 'i' in self.macros:
-            self.last_qid = self.macros['i']
+        if '{i}' in self.macros:
+            self.last_qid = self.macros['{i}']
 
         tls_version = '{tls_version}' in self.macros
         # just in case it isn't a TLS session, penalize. we'll void this in OnHelo if
@@ -2992,7 +2994,7 @@ class BlamMilter(ppymilter.server.PpyMilter):
 
 
     def _store_reject(self):
-        qid = 'i' in self.macros and self.macros['i'] or self.last_qid or self._datetime.strftime('no-qid-%F %T')
+        qid = '{i}' in self.macros and self.macros['{i}'] or self.last_qid or self._datetime.strftime('no-qid-%F %T')
         payload = self.stored_payload or b''
 
         if not payload:
@@ -3089,7 +3091,7 @@ class BlamMilter(ppymilter.server.PpyMilter):
         # don't report chaff to cams
         if (not self.mta_code == 250) and (not self.in_dnsbl):
             self.printme('MTA code: {}, MTA reason: {}'.format(self.mta_code, self.mta_reason), console=True)
-            qid = 'i' in self.stored_macros and self.stored_macros['i'] or "q<?4>"
+            qid = '{i}' in self.stored_macros and self.stored_macros['{i}'] or "q<?4>"
             self.cams_notify('{} \x1d\x02\x0313{}\x0f \u22b3 {}; \x0313{},{},{}\x0f'.format(
                 qid,
                 self._from or self.hostname,
@@ -3110,7 +3112,7 @@ class BlamMilter(ppymilter.server.PpyMilter):
             self.print_as_pairs(self.macros, console=True)
 
             if not ('{mail_addr}' in self.macros and self.macros['{mail_addr}'] \
-                    and 'j' in self.macros and self.macros['j']
+                    and '{j}' in self.macros and self.macros['{j}']
                     and self.client_port):
                 self.printme('Skipping ARF, no mail_addr value in macros', console=True)
             else:
