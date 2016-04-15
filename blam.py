@@ -3303,7 +3303,7 @@ def main(logger):
 
     db       = DB(config, logger)
 
-    _dfw     = dfw.DFW(filter_name=config['main']['filter name'],
+    _dfw     = dfw.DFW(name=config['main']['filter name'],
                        node_address=config['main']['node address'],
                        dburi=config['DFW']['db uri'],
                        logger=logger)
