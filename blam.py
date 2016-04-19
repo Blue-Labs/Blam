@@ -93,47 +93,39 @@ import cssutils
 import daemon
 import datetime
 import email
-import errno
 import fcntl
 import html
 import inspect
 import io
 import ipaddress
-import json
 import locale
-import lockfile
 import logging
 import logging.handlers
 import netaddr
 import os
-import pickle
 import ppymilter
 import pwd
 import re
-import signal
 import socket
 import spf
 import ssl
 import string
-import struct
 import subprocess
 import sys
 import textwrap
-import threading
 import time
 import traceback
-import uuid
 
-import dns.resolver, dns.reversename, dns.exception
-import psycopg2, psycopg2.extras, psycopg2.extensions
+import dns.resolver
+import dns.reversename
+import dns.exception
+import psycopg2
+import psycopg2.extras
+import psycopg2.extensions
 
-from urllib.parse   import urlencode
-from urllib.request import Request, urlopen, build_opener, install_opener, ProxyHandler, HTTPBasicAuthHandler, HTTPRedirectHandler, HTTPCookieProcessor, URLError, HTTPError, HTTPPasswordMgr
-from urllib.error   import URLError
-from http.cookiejar import LWPCookieJar
+from urllib.request import urlopen
 
 from email.utils    import getaddresses
-from email.header   import decode_header
 from collections    import Counter
 from lxml           import etree
 from lxml.cssselect import CSSSelector
@@ -605,7 +597,6 @@ class DB():
 
 
     def _psql_prepare_blam_statements(self):
-        logger = self.logger
         with self.conn.cursor() as c:
             try:
                 cols = 'ts_now,ts_milter,qid,ip,helo,quitcode,quitshort,quitreason,quitlocation,recipients,mail_from'
@@ -709,7 +700,7 @@ class DB():
     def check_notified(self):
         if self.prefsconn.notifies:
             while self.prefsconn.notifies:
-                notify = self.prefsconn.notifies.pop(0)
+                self.prefsconn.notifies.pop(0)
             self.logger.info(ansi['bmagenta']+'Re-fetching preferences'+ansi['none'])
             self.get_prefs()
 
@@ -1327,7 +1318,7 @@ class BlamMilter(ppymilter.server.PpyMilter):
                 if addr[:5].lower() == 'ipv6:':
                     addr = addr[:5]
                 netaddr.IPAddress(addr)
-                return check_dnsbl_by_ip(addr)
+                return self.check_dnsbl_by_ip(addr)
             except:
                 pass
 
@@ -1527,7 +1518,7 @@ class BlamMilter(ppymilter.server.PpyMilter):
             # get all the MX hostnames
             __mxh = self.resolver.query(host, 'MX')
         except (dns.resolver.NXDOMAIN, dns.resolver.NoNameservers, dns.resolver.NoAnswer, dns.exception.Timeout): pass
-        except Exception as e: self.printme('problem in MX resolution of {}: {}'.format(helo, e), console=True)
+        except Exception as e: self.printme('problem in MX resolution of {}: {}'.format(host, e), console=True)
 
         self.printme('MX lookup answers are: {}'.format([str(a) for a in __mxh]))
 
@@ -1799,7 +1790,6 @@ class BlamMilter(ppymilter.server.PpyMilter):
             # TODO: need to handle this for bypass mode
 
             # early quit
-            adr = self.client_address.startswith('IPv6') and self.client_address[5:] or self.client_address
             self.mod_dfw_score(self.dfw.grace_score +1, 'DNSBL: {}'.format(response), ensure_positive_penalty=True)
             return self.CustomReply(550, '5.5.2 {}'.format(response), '5.5.2')
 
@@ -1808,7 +1798,6 @@ class BlamMilter(ppymilter.server.PpyMilter):
             response = ', '.join(_dnsbl)
 
             # early quit
-            adr = self.client_address.startswith('IPv6') and self.client_address[5:] or self.client_address
             self.mod_dfw_score(self.dfw.grace_score +1, 'DNSBL: {}'.format(response), ensure_positive_penalty=True)
             return self.CustomReply(550, '5.5.2 {}'.format(response), '5.5.2')
 
@@ -1911,8 +1900,9 @@ class BlamMilter(ppymilter.server.PpyMilter):
 
         # check dnsbl for self.helo too
         _=None
+        v=None
         try:
-            netaddr.IPAddress(helo)
+            v = netaddr.IPAddress(helo)
             if not v in rfc1918:
                 _ = self.check_dnsbl_by_ip(helo)
         except:
@@ -1928,7 +1918,7 @@ class BlamMilter(ppymilter.server.PpyMilter):
 
         # verify it's not a CNAME
         try:
-            x = self.resolver.query(helo, 'CNAME')
+            self.resolver.query(helo, 'CNAME')
             self.mod_dfw_score(10, 'HELO is a CNAME; RFC5321 2.3.5')
         except (dns.resolver.NXDOMAIN, dns.resolver.NoNameservers, dns.resolver.NoAnswer, dns.exception.Timeout): pass
         except Exception as e: self.printme('check helo/cname; problem resolving {} on {}: {}'.format('CNAME',helo,e), console=True)
@@ -2271,8 +2261,6 @@ class BlamMilter(ppymilter.server.PpyMilter):
                             self.mod_dfw_score(5, 'hostname given in From has no MX: {}'.format(f))
 
             elif lhs == "subject":
-                subj = rhs
-
                 if re.match('fw:re:.*\s\(id:[^)]+\)$', rhs):
                     self.mod_dfw_score(self.dfw.grace_score +1, 'spam Subject', ensure_positive_penalty=True)
 
@@ -2326,9 +2314,6 @@ class BlamMilter(ppymilter.server.PpyMilter):
             # sort and make unique
             rcpttos = set(rcptto + [ x.split('@')[0] for x in rcptto ])
 
-            # get max width of rcpts
-            rcmxlen = max( [ len(x) for x in rcpttos ] )
-
             # whitelist first
             self.printme('checking whitelists')
 
@@ -2339,10 +2324,9 @@ class BlamMilter(ppymilter.server.PpyMilter):
 
             # allow Reply-To to be used as _From such as when a 3rd party payment processor
             # operates on behalf of a whitelisted entity
+            _f = sorted(set([y for y in {envfrom, x} if y]))
             if 'Reply-To' in self.headers:
                 _f += self.headers['Reply-To']
-
-            _f = sorted(set([y for y in {envfrom, x} if y]))
 
             # track this in case it's a virtual address
             try:
@@ -2397,7 +2381,7 @@ class BlamMilter(ppymilter.server.PpyMilter):
                 self.mod_dfw_score(self.dfw.grace_score +1, 'blacklisted', ensure_positive_penalty=True)
                 # authenticated users won't actually be blocked
                 if self.authenticated:
-                    slef.printme('blacklisted, but overridden by authentication')
+                    self.printme('blacklisted, but overridden by authentication')
                     self.actions.append(self.AddHeader('X-Blam-Notice', "Your email would normally be rejected, here's why; blacklist rule: {}".format(why)))
                     return
 
@@ -2447,7 +2431,7 @@ class BlamMilter(ppymilter.server.PpyMilter):
                         if not soup.body:
                             self.printme('text/html part has no body?\n{!r}'.format(body))
                         else:
-                            _body        = soup.body.decode()
+                            #_body        = soup.body.decode()
                             try:
                                 _xmldoc  = etree.HTML(body)
                             except:
@@ -2731,7 +2715,6 @@ class BlamMilter(ppymilter.server.PpyMilter):
         self.headers.append( (lhs,rhs) )
         self.stored_headers.append( (lhs,rhs) )
 
-        now = self._datetime
         if lhs.lower() == 'message-id':
             # max of 5 recipients per msgid
             # this needs to be a tunable
