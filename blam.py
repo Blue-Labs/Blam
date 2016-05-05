@@ -205,7 +205,8 @@ spam_dict = {'success':1, 'market':2, 'marketing':2, 'markting':2, 'merchant':1,
              'voucher':2, 'comfort of your':5, 'it might be too late':2, 'open now':4, 'capital':2, 'start-up':2,
              'small business':2, 'loan':2, 'approval rating':2, "global who's who":10, '\d+ days only!':3,
 
-             'stylish ideas':2, 'ideas for your':2, 'outdated kitchen':10, 'kitchen ideas':4,
+             'stylish ideas':2, 'ideas for your':2, 'outdated kitchen':10, 'kitchen ideas':4, 'flashlight':3,
+             'mothers day':2, 'you still have time':2, 'get there in time':2, 'order today':2,
 
              # phishing
              'user quota exceeded':15, 'will be closed':2, 'click here':8, 'increase your storage':5, 'in next 24(hrs|hours)':3,
@@ -229,26 +230,29 @@ spam_dict = {'success':1, 'market':2, 'marketing':2, 'markting':2, 'merchant':1,
              'quality cigars':5,
              'watches':2, 'credit card':2, 'contract':1, 'pimsleur approach':15, 'pimsleurapproach':8,
              'production capacity':1, 'price':1, 'sales':1, 'eharmony':3,'drugstore':2,'cheapest':1,
-             'cash':3, 'loan':3, 'breaking news':5, 'best price':2,
+             'cash':3, 'loan':3, 'breaking news':5, 'best price':2, 'home and office':2,
              'our courier couldnt make the delivery of parcel to you at ':99,
              '263yutdz':99,
+             'must.see':3, 'cops use these':3,
 
              # vacations
              'cruise':1, 'cruises':2, 'caribbean':2, 'alaskan':2, 'vacation':.5, 'luxury':1, 'luxury liner':4,
              'resorts?':4, 'mexico':4, 'cheap vacation':5, 'all.?inclusive':5, 'booking now':5, 'island vacation':5,
-             'private jets?':4, 'crowded airports?':4,
+             'private jets?':4, 'crowded airports?':4, 'dream.vacation':3,
 
              # deals
              'savings':1, 'sponsored ads':5, 'last minute deals':3, 'great deals':2, 'save up to':1.8, 'featured ads':10,
              'most affordable':4, 'affordable':1, 'view the offer':5, 'free trial':5, 'check prices':5, 'limited supply':10,
              'limited production':10, 'claim your':3, 'voucher':3, 'gift ?card':5, 'claim here':8, 'dr. oz':10,
-             'dealerships':3, 'need to go':3,
+             'dealerships':3, 'need to go':3, 'find.out.more':3, 'learn more':2, 'wave goodbye':2,
+             'respond to this notice':3,
 
              # save/make money
              '<p>order r:\d+':99,
              'earn at home':5, 'risk free':5, 'money making':5, 'save money':4, 'earn immediately':5, 'higher salary':5,
              'you qualify':5, 'claim your':5, 'bank':3, 'loan':3, 'income':3, 'financial plan':8, 'hgtv-home':10,
              'reduced payment':1, 'banking':5, 'investment':5, 'monthly payment':2, 'your coverage':2, 'policy':.5,
+             'saving money':3, 'overpaying for':3, 'additional.charges':2,
 
              # jobs
              'abundant openings':3,
@@ -272,7 +276,7 @@ spam_dict = {'success':1, 'market':2, 'marketing':2, 'markting':2, 'merchant':1,
              'never lose your keys':15,
 
              'multiroom a/c':2, 'air conditioners?':2, 'ac system':2, 'central air':2, 'hvac':2, 'cooling':2, 'cooling costs':5,
-             'energy efficient':3, 'pella windows':8, 'thermostat':3,
+             'energy efficient':3, 'pella windows':8, 'thermostat':3, 'voip':2,
 
              'roof(-| )repair':10, 'roofing specials':10,
 
@@ -294,11 +298,16 @@ spam_dict = {'success':1, 'market':2, 'marketing':2, 'markting':2, 'merchant':1,
              'remove at this location':10, 'from-future sends':10, 'remove-from sender':10, 'stop these messages':10,
              'for list-removal':10, 'to not get these':10, 'cease further messages':10, 'remove here':5, 'redact':2,
              'message sent by':2, 'visit here':2, 'redact from':2, 'click on the':3, 'wish to receive':3,
+             'looking to (quit|end).(future|further).\w+ads\W':10,
+             'if you would.rather.quit.future.\w+ads\W':10,
+             'if you want to end messaging':10,
 
              # address at bottom of email
              'po box.*?,\s?austin tx':15,
              'p o b o x':15, 'pobox':8, 'pobox\d+':8,
              '15547 hazel road morrison il':15,
+             '1748 olympic ave':15,
+             '2331 east lake drive':15,
 
              'old folk saying':2, 'proverb':2,
 
