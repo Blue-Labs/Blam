@@ -402,6 +402,7 @@ spam_dict = {'success':1, 'market':2, 'marketing':2, 'markting':2, 'merchant':1,
              '/l/l[ct]\d+[a-z]+\d+[a-z]+\d+[a-z]+/':50, # href
              '/im/[\da-z]{10}//im/[\da-z]{36}/img\d{8}.gif':50, # corresponding img
              '/\d{4}-\d{3}-\d{4}-\d{7}/':50,
+             'https?://[^/]+/0s3b522sas2':50,
 
              'i would directly like to request you':10,
              'acquire additional income online':10,
