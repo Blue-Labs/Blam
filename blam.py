@@ -206,13 +206,20 @@ spam_dict = {'success':1, 'market':2, 'marketing':2, 'markting':2, 'merchant':1,
              'small business':2, 'loan':2, 'approval rating':2, "global who's who":10, '\d+ days only!':3,
 
              'stylish ideas':2, 'ideas for your':2, 'outdated kitchen':10, 'kitchen ideas':4, 'flashlight':3,
-             'mothers day':2, 'you still have time':2, 'get there in time':2, 'order today':2,
+             'mothers day':2, 'you still have time':2, 'get there in time':2, 'order today':2, 'luxury':2, 'premium':1, 'elite':1,
+
+             # vacuums
+             'best vacuums?':3, 'vacuum cleaners?':3, 'upright':.5, 'canister':.5, 'bagless':2, 'cordless':.5, 'cleaning capacity':2,
+
 
              # phishing
              'user quota exceeded':15, 'will be closed':2, 'click here':8, 'increase your storage':5, 'in next 24(hrs|hours)':3,
              'proper verification':4, 'access your':2, 'domain security':3, 'free registration':1, 'xerox':5,
              'workcentre pro':5, 'please open the attached':5, 'account':1, 'account for verification':15,
              'reward balance':5, 'trust fund':5, 'send your identity':5,
+
+             'i am following up with you':5, 'if you are interested':2, 'entry level':2, 'promotional':2, 'click on the link':3,
+             'demo of our':3,
 
              # scam
              'sterling power':10, 'lg wave':10, 'has been deposited':2, 'bonds':1, 'cash':1, 'passport':1,
@@ -245,7 +252,8 @@ spam_dict = {'success':1, 'market':2, 'marketing':2, 'markting':2, 'merchant':1,
              'most affordable':4, 'affordable':1, 'view the offer':5, 'free trial':5, 'check prices':5, 'limited supply':10,
              'limited production':10, 'claim your':3, 'voucher':3, 'gift ?card':5, 'claim here':8, 'dr. oz':10,
              'dealerships':3, 'need to go':3, 'find.out.more':3, 'learn more':2, 'wave goodbye':2,
-             'respond to this notice':3,
+             'respond to this notice':3, 'more inventory':1, 'need to clear':1, 'drive away':1, 'little to nothing':1,
+             'before they are gone':1,
 
              # save/make money
              '<p>order r:\d+':99,
@@ -268,7 +276,7 @@ spam_dict = {'success':1, 'market':2, 'marketing':2, 'markting':2, 'merchant':1,
              '=?koi8-r':1,
              'mail.ru':2, '\w+\.ninja\W':2,
 
-             'not displaying correctly':2, 'view it in your browser':2,
+             'not displaying correctly':2, 'view it in your browser':2, 'view more info':3,
              'this email has been protected by yac':20,
 
              'discreet fun':10, 'cheating men and women':10, 'secret affair':10,
@@ -278,7 +286,7 @@ spam_dict = {'success':1, 'market':2, 'marketing':2, 'markting':2, 'merchant':1,
              'multiroom a/c':2, 'air conditioners?':2, 'ac system':2, 'central air':2, 'hvac':2, 'cooling':2, 'cooling costs':5,
              'energy efficient':3, 'pella windows':8, 'thermostat':3, 'voip':2,
 
-             'roof(-| )repair':10, 'roofing specials':10,
+             'roof(-| )repair':10, 'roofing specials':10, 'home.repair':3, 'home.warranty':3, 'coverate':1,
 
              # tax
              'irs':5, 'irs account':18, 'tax payment':3, 'irs-service':18, 'internal revenue service':5,
@@ -297,10 +305,16 @@ spam_dict = {'success':1, 'market':2, 'marketing':2, 'markting':2, 'merchant':1,
              'no desea recibir':10, 'list removal':5, 'sent to the wrong person':5, 'report spam':5, 'signed up in error':5,
              'remove at this location':10, 'from-future sends':10, 'remove-from sender':10, 'stop these messages':10,
              'for list-removal':10, 'to not get these':10, 'cease further messages':10, 'remove here':5, 'redact':2,
-             'message sent by':2, 'visit here':2, 'redact from':2, 'click on the':3, 'wish to receive':3,
+             'message sent by':2, 'visit here':2, 'redact from':2, 'click on the':3, 'wish to receive':3, 'end.messages':3,
+
+             'refrain from future messages':8,
+
              'looking to (quit|end).(future|further).\w+ads\W':10,
              'if you would.rather.quit.future.\w+ads\W':10,
              'if you want to end messaging':10,
+             'you can.quit these scoreads-':10,
+             'you can end-future repairads':10,
+             "if you'd rather not.get these healthyads":10,
 
              # address at bottom of email
              'po box.*?,\s?austin tx':15,
@@ -308,6 +322,10 @@ spam_dict = {'success':1, 'market':2, 'marketing':2, 'markting':2, 'merchant':1,
              '15547 hazel road morrison il':15,
              '1748 olympic ave':15,
              '2331 east lake drive':15,
+             'katz web-creations 6001 rt b':15,
+             '1748 Olympic Avenue_WESTW00D':15, '1748 Olympic Ave':15,
+             '6506 Pine Trail #4-Tinley Park-Il':15,
+             '101 E. Carroll Rd, South Whitley, IN 46787':15,
 
              'old folk saying':2, 'proverb':2,
 
@@ -336,7 +354,7 @@ spam_dict = {'success':1, 'market':2, 'marketing':2, 'markting':2, 'merchant':1,
              'background quer(y|ies)':3, 'information search(?:es|)':3, 'background checks?':3, 'background-records':5,
              'criminal file':3, 'background.lookups?':3, 'history checks?':3, 'history hunts?':3, 'open records':3,
              'perspective records':3, 'notification':1, 'records notice':3, 'review notification':8, 'in your area':8,
-             'trained contractors':8, 'major local networks':8,
+             'trained contractors':8, 'major local networks':8, 'your scores.have(.recently|).changed':8,
              'credit score':2, 'debts':2, 'credit':2, 'consolidate':1, 'monthly payment':2, 'low rate':2,
              'debt analysis':5, 'credit counselor':2, 'consolidated credit':5,
              'spending power':10,
@@ -355,7 +373,7 @@ spam_dict = {'success':1, 'market':2, 'marketing':2, 'markting':2, 'merchant':1,
 
              'new invention':5, 'selling out quickly':5, 'while( stock is|) available':5, "before it's too late":5,
              'by invitation only':5, 'special proposition':5, 'you have been selected':5, 'revelation':2, 'news is spreading':5,
-             'important information':5, 'free sample':5,
+             'important information':5, 'free sample':5, 'visit here now':5,
              'professional':1, 'increase in value':1, 'cosmetic':1, 'contractor':1, 'affordable':1,
 
              # white on white
@@ -383,6 +401,9 @@ spam_dict = {'success':1, 'market':2, 'marketing':2, 'markting':2, 'merchant':1,
              # lots of blank lines
              '\n{5}':10,
              '<br><br><br><br><br><br><br>':15,
+
+             # /////////////
+             '/{30,}':5,
 
              # white text on white background
              'color:\s*#(?:ffffff|fff);\s*background-color:\s*#(?:ffffff|fff);':15,
