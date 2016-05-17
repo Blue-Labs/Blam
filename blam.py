@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 
-__version__  = '3.0.22'
+__version__  = '3.0.23'
 __author__   = 'David Ford <david@blue-labs.org>'
 __email__    = 'david@blue-labs.org'
-__date__     = '2016-Mar-29 11:48E'
+__date__     = '2016-May-17 3:38E'
 __license__  = 'Apache 2.0'
 
 """
@@ -204,9 +204,15 @@ spam_dict = {'success':1, 'market':2, 'marketing':2, 'markting':2, 'merchant':1,
              'grow your':3, 'small business':2, 'funding':2, 'redeem':1, 'rewards':1, 'receepts':5, 'valid online':2,
              'voucher':2, 'comfort of your':5, 'it might be too late':2, 'open now':4, 'capital':2, 'start-up':2,
              'small business':2, 'loan':2, 'approval rating':2, "global who's who":10, '\d+ days only!':3,
+             'work.from.home':5, 'work.at.home':5, 'change careers':3, 'medical coding':5, 'perks of':2, 'business class':2,
 
              'stylish ideas':2, 'ideas for your':2, 'outdated kitchen':10, 'kitchen ideas':4, 'flashlight':3,
              'mothers day':2, 'you still have time':2, 'get there in time':2, 'order today':2, 'luxury':2, 'premium':1, 'elite':1,
+             'ad listings':8,
+
+             'singh web-services':15,
+             'slater.net.com.group':15,
+             'tomlinson quick-net':15,
 
              # vacuums
              'best vacuums?':3, 'vacuum cleaners?':3, 'upright':.5, 'canister':.5, 'bagless':2, 'cordless':.5, 'cleaning capacity':2,
@@ -245,7 +251,7 @@ spam_dict = {'success':1, 'market':2, 'marketing':2, 'markting':2, 'merchant':1,
              # vacations
              'cruise':1, 'cruises':2, 'caribbean':2, 'alaskan':2, 'vacation':.5, 'luxury':1, 'luxury liner':4,
              'resorts?':4, 'mexico':4, 'cheap vacation':5, 'all.?inclusive':5, 'booking now':5, 'island vacation':5,
-             'private jets?':4, 'crowded airports?':4, 'dream.vacation':3,
+             'private jets?':4, 'crowded airports?':4, 'dream.vacation':3, 'summer camp':5,
 
              # deals
              'savings':1, 'sponsored ads':5, 'last minute deals':3, 'great deals':2, 'save up to':1.8, 'featured ads':10,
@@ -283,8 +289,10 @@ spam_dict = {'success':1, 'market':2, 'marketing':2, 'markting':2, 'merchant':1,
              'printer ink':15,
              'never lose your keys':15,
 
-             'multiroom a/c':2, 'air conditioners?':2, 'ac system':2, 'central air':2, 'hvac':2, 'cooling':2, 'cooling costs':5,
-             'energy efficient':3, 'pella windows':8, 'thermostat':3, 'voip':2,
+             'hvac':3, 'a/c':3, 'multiroom a/c':2, 'air conditioners?':2, 'ac system':2, 'central air':2, 'hvac':2, 'cooling':2, 'cooling costs':5,
+             'energy efficient':3, 'pella windows':8, 'thermostat':3, 'cool and comfortable':3, 'ductless':2, 'central air':2,
+
+             'voip':2,
 
              'roof(-| )repair':10, 'roofing specials':10, 'home.repair':3, 'home.warranty':3, 'coverate':1,
 
@@ -306,8 +314,9 @@ spam_dict = {'success':1, 'market':2, 'marketing':2, 'markting':2, 'merchant':1,
              'remove at this location':10, 'from-future sends':10, 'remove-from sender':10, 'stop these messages':10,
              'for list-removal':10, 'to not get these':10, 'cease further messages':10, 'remove here':5, 'redact':2,
              'message sent by':2, 'visit here':2, 'redact from':2, 'click on the':3, 'wish to receive':3, 'end.messages':3,
+             'modify your preferences':3, 'retract.messages':10, 'discontinue receiving this':10,
 
-             'refrain from future messages':8,
+             'refrain from future messages':8, 'to stop information':8,
 
              'looking to (quit|end).(future|further).\w+ads\W':10,
              'if you would.rather.quit.future.\w+ads\W':10,
@@ -315,6 +324,7 @@ spam_dict = {'success':1, 'market':2, 'marketing':2, 'markting':2, 'merchant':1,
              'you can.quit these scoreads-':10,
              'you can end-future repairads':10,
              "if you'd rather not.get these healthyads":10,
+             'Want to change how you receive these emails':10,
 
              # address at bottom of email
              'po box.*?,\s?austin tx':15,
@@ -323,9 +333,14 @@ spam_dict = {'success':1, 'market':2, 'marketing':2, 'markting':2, 'merchant':1,
              '1748 olympic ave':15,
              '2331 east lake drive':15,
              'katz web-creations 6001 rt b':15,
-             '1748 Olympic Avenue_WESTW00D':15, '1748 Olympic Ave':15,
-             '6506 Pine Trail #4-Tinley Park-Il':15,
-             '101 E. Carroll Rd, South Whitley, IN 46787':15,
+             '1748 olympic avenue_westw00d':15, '1748 olympic ave':15,
+             '6506 pine trail #4-pinley park-il':15,
+             '101 e. carroll rd, south whitley, in 46787':15,
+             '7471 n. camino':15,
+             '3.?7.?3.?3.?w.?o.?o.?d.?v.?i.?e.?w':15,
+             '6506 pine trail':15,
+             'tinley park, il 60477':15,
+             '761 soap hollow rd':15,
 
              'old folk saying':2, 'proverb':2,
 
