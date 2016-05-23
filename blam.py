@@ -322,7 +322,7 @@ spam_dict = {'success':1, 'market':2, 'marketing':2, 'markting':2, 'merchant':1,
              'refrain from future messages':8, 'to stop information':8,
 
              'looking to.(quit|end).(future|further|these).\w+ads\W':10,
-             'if you would.rather.quit.future.\w+ads\W':10,
+             'if you would.(prefer|rather).quit.(future|further|these).\w+ads\W':10,
              'if you want to end messaging':10,
              'you can.quit these scoreads-':10,
              'you can end-future repairads':10,
@@ -3168,7 +3168,8 @@ class BlamMilter(ppymilter.server.PpyMilter):
                 else:
                 '''
                 enc_p = self.stored_email_msg
-                if 1:
+
+                if self.subject_chad: # sigh, can't keep up. only do ARFs on bodied spams.
                     try:
 
                         arfc = 'ARF' in self.config and self.config['ARF']
