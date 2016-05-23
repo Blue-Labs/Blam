@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 
-__version__  = '3.0.23'
+__version__  = '3.0.26'
 __author__   = 'David Ford <david@blue-labs.org>'
 __email__    = 'david@blue-labs.org'
-__date__     = '2016-May-17 3:38E'
+__date__     = '2016-May-23 14:56E'
 __license__  = 'Apache 2.0'
 
 """
@@ -205,6 +205,9 @@ spam_dict = {'success':1, 'market':2, 'marketing':2, 'markting':2, 'merchant':1,
              'voucher':2, 'comfort of your':5, 'it might be too late':2, 'open now':4, 'capital':2, 'start-up':2,
              'small business':2, 'loan':2, 'approval rating':2, "global who's who":10, '\d+ days only!':3,
              'work.from.home':5, 'work.at.home':5, 'change careers':3, 'medical coding':5, 'perks of':2, 'business class':2,
+             'must have':2, 'soldier':1, 'us army':1, 'survival tool':2, 'protect your loved':2, 'starbucks':1, 'coffee':1,
+             'reward':1, 'reward.?points':1, 'going to expire':1, 'will expire':1, 'notice':1, 'notice #\d+':5, 'go here':1, 'claim your':1,
+             'complimentary':1, 'follow the link':1, 'redeem':1, 'olive.?garden':1, 'bonus':1, 'simply visit':1,
 
              'stylish ideas':2, 'ideas for your':2, 'outdated kitchen':10, 'kitchen ideas':4, 'flashlight':3,
              'mothers day':2, 'you still have time':2, 'get there in time':2, 'order today':2, 'luxury':2, 'premium':1, 'elite':1,
@@ -318,7 +321,7 @@ spam_dict = {'success':1, 'market':2, 'marketing':2, 'markting':2, 'merchant':1,
 
              'refrain from future messages':8, 'to stop information':8,
 
-             'looking to (quit|end).(future|further).\w+ads\W':10,
+             'looking to.(quit|end).(future|further|these).\w+ads\W':10,
              'if you would.rather.quit.future.\w+ads\W':10,
              'if you want to end messaging':10,
              'you can.quit these scoreads-':10,
@@ -341,6 +344,7 @@ spam_dict = {'success':1, 'market':2, 'marketing':2, 'markting':2, 'merchant':1,
              '6506 pine trail':15,
              'tinley park, il 60477':15,
              '761 soap hollow rd':15,
+             '2885 sanford ave s.w. #37719':15,
 
              'old folk saying':2, 'proverb':2,
 
@@ -372,7 +376,7 @@ spam_dict = {'success':1, 'market':2, 'marketing':2, 'markting':2, 'merchant':1,
              'trained contractors':8, 'major local networks':8, 'your scores.have(.recently|).changed':8,
              'credit score':2, 'debts':2, 'credit':2, 'consolidate':1, 'monthly payment':2, 'low rate':2,
              'debt analysis':5, 'credit counselor':2, 'consolidated credit':5,
-             'spending power':10,
+             'spending power':10, 'score notification':3, 'this notification':3, 'score.update':3, 'action.required':3,
 
              'exclusively':3, 'limitless':3,
              'auto(motive|)( \w+) warranty':10, 'auto(motive|)( \w+) service':10, 'warranty':5, 'guarantee':5,
@@ -439,6 +443,7 @@ spam_dict = {'success':1, 'market':2, 'marketing':2, 'markting':2, 'merchant':1,
              '/im/[\da-z]{10}//im/[\da-z]{36}/img\d{8}.gif':50, # corresponding img
              '/\d{4}-\d{3}-\d{4}-\d{7}/':50,
              'https?://[^/]+/0s3b522sas2':50,
+             'a02c12fde9db1c4b266925b85139272e':5,
 
              'i would directly like to request you':10,
              'acquire additional income online':10,
