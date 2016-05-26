@@ -202,12 +202,13 @@ spam_dict = {'success':1, 'market':2, 'marketing':2, 'markting':2, 'merchant':1,
              'diversify':1, 'business':1, 'offers':1, 'offres':1, 'exclusive':2, 'confirm your':3, 'resolution':3,
              'exclusif':1, 'services':1, 'replica':1, 'promotion':1, 'exclusively here':5, 'last chance':5,
              'grow your':3, 'small business':2, 'funding':2, 'redeem':1, 'rewards':1, 'receepts':5, 'valid online':2,
-             'voucher':2, 'comfort of your':5, 'it might be too late':2, 'open now':4, 'capital':2, 'start-up':2,
+             'comfort of your':5, 'it might be too late':2, 'open now':4, 'capital':2, 'start-up':2,
              'small business':2, 'loan':2, 'approval rating':2, "global who's who":10, '\d+ days only!':3,
-             'work.from.home':5, 'work.at.home':5, 'change careers':3, 'medical coding':5, 'perks of':2, 'business class':2,
+             'work.from.home':5, 'work.at.home':5, 'change careers':3, 'medical coding':5, 'perks of':2, 'business class':4,
              'must have':2, 'soldier':1, 'us army':1, 'survival tool':2, 'protect your loved':2, 'starbucks':1, 'coffee':1,
              'reward':1, 'reward.?points':1, 'going to expire':1, 'will expire':1, 'notice':1, 'notice #\d+':5, 'go here':1, 'claim your':1,
              'complimentary':1, 'follow the link':1, 'redeem':1, 'olive.?garden':1, 'bonus':1, 'simply visit':1,
+             'gourmet':2, 'amenities':1, 'comfortable':1, 'class flights?':4,
 
              'stylish ideas':2, 'ideas for your':2, 'outdated kitchen':10, 'kitchen ideas':4, 'flashlight':3,
              'mothers day':2, 'you still have time':2, 'get there in time':2, 'order today':2, 'luxury':2, 'premium':1, 'elite':1,
@@ -259,7 +260,7 @@ spam_dict = {'success':1, 'market':2, 'marketing':2, 'markting':2, 'merchant':1,
              # deals
              'savings':1, 'sponsored ads':5, 'last minute deals':3, 'great deals':2, 'save up to':1.8, 'featured ads':10,
              'most affordable':4, 'affordable':1, 'view the offer':5, 'free trial':5, 'check prices':5, 'limited supply':10,
-             'limited production':10, 'claim your':3, 'voucher':3, 'gift ?card':5, 'claim here':8, 'dr. oz':10,
+             'limited production':10, 'claim your':3, 'vouchers?':3, 'coupons?':3, 'gift ?card':5, 'claim here':8, 'dr. oz':10,
              'dealerships':3, 'need to go':3, 'find.out.more':3, 'learn more':2, 'wave goodbye':2,
              'respond to this notice':3, 'more inventory':1, 'need to clear':1, 'drive away':1, 'little to nothing':1,
              'before they are gone':1,
@@ -317,17 +318,22 @@ spam_dict = {'success':1, 'market':2, 'marketing':2, 'markting':2, 'merchant':1,
              'remove at this location':10, 'from-future sends':10, 'remove-from sender':10, 'stop these messages':10,
              'for list-removal':10, 'to not get these':10, 'cease further messages':10, 'remove here':5, 'redact':2,
              'message sent by':2, 'visit here':2, 'redact from':2, 'click on the':3, 'wish to receive':3, 'end.messages':3,
-             'modify your preferences':3, 'retract.messages':10, 'discontinue receiving this':10,
+             'modify your preferences':3, 'retract.messages':10, 'discontinue receiving this':10, 'you are receiving this message because':5,
 
              'refrain from future messages':8, 'to stop information':8,
 
              'looking to.(quit|end).(future|further|these).\w+ads\W':10,
              'if you would.(prefer|rather).quit.(future|further|these).\w+ads\W':10,
+             'If you would-prefer to not.receive such healthads-you can visit':10,
              'if you want to end messaging':10,
              'you can.quit these scoreads-':10,
              'you can end-future repairads':10,
+             'you can.end.these healthyads-by going.right':10,
              "if you'd rather not.get these healthyads":10,
+             'if you would.like to end-these candidateads-you can go':10,
              'Want to change how you receive these emails':10,
+             'terminate messages at this location':10,
+             'put an end to info':10,
 
              # address at bottom of email
              'po box.*?,\s?austin tx':15,
@@ -345,6 +351,11 @@ spam_dict = {'success':1, 'market':2, 'marketing':2, 'markting':2, 'merchant':1,
              'tinley park, il 60477':15,
              '761 soap hollow rd':15,
              '2885 sanford ave s.w. #37719':15,
+             '2885 sanford.avenue.south.?west':15,
+             '341 e central ave webster fl':15,
+             '7471 north camino dela tierra':15,
+             '1948 abbey lane danville in':15,
+             '760 farm road two one one marlborough ma':15,
 
              'old folk saying':2, 'proverb':2,
 
@@ -363,6 +374,8 @@ spam_dict = {'success':1, 'market':2, 'marketing':2, 'markting':2, 'merchant':1,
              'hearing aids?':1, 'pain':1, 'prescription':8, 'less wrinkles':8, 'anti(\s|-)aging':5, 'international pharmacy':20,
 
              'safegenericsshop.ru':60, 'globalherbalgroup.ru':60,
+
+             'nutrisystem':8,
 
 
              'img src="https?://[\w.]+\?email=':50,
@@ -386,7 +399,7 @@ spam_dict = {'success':1, 'market':2, 'marketing':2, 'markting':2, 'merchant':1,
              'service plan':5, 'retirement planning':10, 'homeowners?':10, 'home equity':10, 'mortgage':10,
              'free\s*shipping':3,
              'certificate':1, 'certificadas':5,
-             'kidney beans':8, 'as seen on tv':50, 'coupon':2,
+             'kidney beans':8, 'as seen on tv':50,
              'end notification':8, 'specials end':3, '\d+% off':2, 'new and used':5,
              'new or used car':10, 'at your local dealer':10, 'oil change':2, 'auto\s*repair':2,
 
@@ -446,6 +459,7 @@ spam_dict = {'success':1, 'market':2, 'marketing':2, 'markting':2, 'merchant':1,
              'a02c12fde9db1c4b266925b85139272e':50,
              '55ec676f05bbf1742d4ce07b87a67902':50,
              'alt="[\da-f]{32}"':10,
+             '\?mid=[\da-f]{32}'
 
              'i would directly like to request you':10,
              'acquire additional income online':10,
@@ -1311,7 +1325,7 @@ class BlamMilter(ppymilter.server.PpyMilter):
 
 
     def check_dnsbl_by_ip(self, addr):
-        reasons = { '127.0.0.2':'Static UBE sources, verified spam services (hosting or support) and ROKSO spammers',
+        sh_reasons = { '127.0.0.2':'Static UBE sources, verified spam services (hosting or support) and ROKSO spammers',
                     '127.0.0.3':'Static UBE sources, verified spam services (hosting or support) and ROKSO spammers',
                     '127.0.0.4':'Illegal 3rd party exploits, including proxies, worms and trojan exploits',
                     '127.0.0.5':'Illegal 3rd party exploits, including proxies, worms and trojan exploits',
@@ -1329,7 +1343,12 @@ class BlamMilter(ppymilter.server.PpyMilter):
         response = []
         answers=[]
 
-        for svc in ('zen.spamhaus.org','bb.barracudacentral.org'):
+        bld = {'zen.spamhaus.org':sh_reasons,
+               'bb.barracudacentral.org':sh_reasons,
+               'multi.surbl.org':surbl_reasons,
+               }
+
+        for svc,reasons in bld.items():
             q = addr + '.' + svc
             try:
                 answers = self.resolver.query(q, 'A')
@@ -1350,7 +1369,7 @@ class BlamMilter(ppymilter.server.PpyMilter):
 
 
     def check_dnsbl_by_name(self, addr):
-        reasons = { '127.0.0.2':'Static UBE sources, verified spam services (hosting or support) and ROKSO spammers',
+        sh_reasons = { '127.0.0.2':'Static UBE sources, verified spam services (hosting or support) and ROKSO spammers',
                     '127.0.0.3':'Static UBE sources, verified spam services (hosting or support) and ROKSO spammers',
                     '127.0.0.4':'Illegal 3rd party exploits, including proxies, worms and trojan exploits',
                     '127.0.0.5':'Illegal 3rd party exploits, including proxies, worms and trojan exploits',
@@ -1363,6 +1382,23 @@ class BlamMilter(ppymilter.server.PpyMilter):
                     '127.0.1.0':'Spamhaus Domain Blocklist',
                   }
 
+        surbl_reasons = {
+            '127.0.0.8':'Phishing sites',
+            '127.0.0.16':'Malware sites',
+            '127.0.0.32':'unknown',
+            '127.0.0.64':'Spam abuse',
+            '127.0.0.128':'Cracked/exploited',
+        }
+
+        uribl_reasons = {
+            '127.0.0.2':'URIBL Black list',
+            '127.0.0.4':'URIBL Grey list',
+            '127.0.0.16':'URIBL Gold list',
+        }
+
+
+        # these lookups need to be able to pass back a score too.
+
         # see if we got an IP, [1.2.3.4] or [IPv6:xx:xx:...]
         if addr[0]=='[' and addr[1]==']':
             try:
@@ -1374,20 +1410,42 @@ class BlamMilter(ppymilter.server.PpyMilter):
             except:
                 pass
 
-        q = addr + '.zen.spamhaus.org.'
-        self.printme('query by name for {}'.format(q))
+        bld = {'zen.spamhaus.org':sh_reasons,
+               'bb.barracudacentral.org':sh_reasons,
+               'multi.surbl.org':surbl_reasons,
+               'multi.uribl.com':uribl_reasons,
+               'sbl.spamhaus.org':{},
+               }
+
         response = []
-        answers=[]
+        for svc,reasons in bld.items():
+            q = addr + '.'+ svc + '.'
+            self.printme('query by name for {}'.format(q))
+            answers=[]
 
-        try:
-            answers = self.resolver.query(q, 'A')
-        except (dns.resolver.NXDOMAIN, dns.resolver.NoNameservers, dns.resolver.NoAnswer, dns.exception.Timeout): pass
-        except Exception as e: self.printme('DNSBL/host; problem resolving {}: {}'.format(q, e), console=True)
+            try:
+                answers = self.resolver.query(q, 'A')
+            except (dns.resolver.NXDOMAIN, dns.resolver.NoNameservers, dns.resolver.NoAnswer, dns.exception.Timeout): pass
+            except Exception as e: self.printme('DNSBL/host; problem resolving {}: {}'.format(q, e), console=True)
 
-        for answer in answers:
-            if answer.address in reasons:
-                if not reasons[answer.address] in response:
-                    response.append(reasons[answer.address])
+            for answer in answers:
+                if answer.address in reasons:
+                    # don't list muliple hits please
+                    if not reasons[answer.address] in response:
+                        if svc.startswith('multi'):
+                            self.printme('DNSBL/{}; got answer {}'.format(svc, answer.address), console=True)
+                            l_octet = int(answer.address.split('.')[-1])
+                            for bit in range(0,8):
+                                if l_octet & (1<<bit):
+                                    s = '127.0.0.{}'.format(l_octet)
+                                    if s in reasons:
+                                        response.append(reasons[s])
+                                    else:
+                                        self.printme('DNSBL/{}; got unexpected answer {}'.format(svc, answer.address))
+                        else:
+                            response.append(reasons[answer.address])
+                else:
+                    self.printme('DNSBL/{}; got unknown answer {}'.format(svc, answer.address))
 
         if response:
             self.printme('target found in DNSBL: {}'.format(response))
