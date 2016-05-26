@@ -443,7 +443,9 @@ spam_dict = {'success':1, 'market':2, 'marketing':2, 'markting':2, 'merchant':1,
              '/im/[\da-z]{10}//im/[\da-z]{36}/img\d{8}.gif':50, # corresponding img
              '/\d{4}-\d{3}-\d{4}-\d{7}/':50,
              'https?://[^/]+/0s3b522sas2':50,
-             'a02c12fde9db1c4b266925b85139272e':5,
+             'a02c12fde9db1c4b266925b85139272e':50,
+             '55ec676f05bbf1742d4ce07b87a67902':50,
+             'alt="[\da-f]{32}"':10,
 
              'i would directly like to request you':10,
              'acquire additional income online':10,
@@ -1093,7 +1095,6 @@ class BlamMilter(ppymilter.server.PpyMilter):
 
             # state trackers for spam triggers, don't erase these on multi-email transactions. once a bad guy, always a bad guy
             # yes, this might hurt innocent guys...hmm. reset these after the headers are added on an email?
-            self.greetings          = {}              # deprecated
             self.was_kicked         = False           # global
             self.early_punish       = False           # global
             self.left_early         = True            # global
@@ -2854,7 +2855,6 @@ class BlamMilter(ppymilter.server.PpyMilter):
         self.printme ('Inserting Blam headers', logging.DEBUG)
         self.actions.append(self.AddHeader('X-Blam', 'Blue-Labs Anti-Muggle filter v{}, from {}'.format(__version__, self.st[0])))
         self.actions.append(self.AddHeader('X-Blam-Report', 'dfw_penalty: {}'.format(self.dfw_penalty)))
-        self.actions.append(self.AddHeader('X-Blam-Report', 'greetings: {}'.format(self.greetings)))
 
         self.left_early = False
 
@@ -2970,8 +2970,6 @@ class BlamMilter(ppymilter.server.PpyMilter):
 
                     if self.dfw_penalty:
                         reasons.append('dfw score: {}'.format(self.dfw_penalty))
-                    if self.greetings:
-                        reasons.append('greetings: {}'.format(self.greetings))
 
                     # don't waste time punching twice, early punished connections are grace+1; already firewalled
                     if not self.early_punish:
@@ -3000,8 +2998,6 @@ class BlamMilter(ppymilter.server.PpyMilter):
         self.printme('whitelisted:     {!r}'.format(self.whitelisted))
         self.printme('blacklisted:     {!r}'.format(self.blacklisted))
         self.printme('authenticated:   {!r}'.format(self.authenticated))
-
-        self.printme('X-Blam-Report-greetings: {}'.format(self.greetings))
 
         if self.mta_code == 250 and (self.hostname in self.pre_approved) or self.whitelisted or (not self.left_early):
             color = '\033[1;32m'
@@ -3058,8 +3054,6 @@ class BlamMilter(ppymilter.server.PpyMilter):
             f.write('whitelisted:     {!r}\n'.format(self.whitelisted))
             f.write('blacklisted:     {!r}\n'.format(self.blacklisted))
             f.write('authenticated:   {!r}\n'.format(self.authenticated))
-
-            f.write('X-Blam-Report-greetings: {}\n'.format(self.greetings))
 
 
     def OnEom(self):
