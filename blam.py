@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 
-__version__  = '3.0.26'
+__version__  = '3.0.27'
 __author__   = 'David Ford <david@blue-labs.org>'
 __email__    = 'david@blue-labs.org'
-__date__     = '2016-May-23 14:56E'
+__date__     = '2016-May-31 18:06E'
 __license__  = 'Apache 2.0'
 
 """
@@ -212,7 +212,7 @@ spam_dict = {'success':1, 'market':2, 'marketing':2, 'markting':2, 'merchant':1,
 
              'stylish ideas':2, 'ideas for your':2, 'outdated kitchen':10, 'kitchen ideas':4, 'flashlight':3,
              'mothers day':2, 'you still have time':2, 'get there in time':2, 'order today':2, 'luxury':2, 'premium':1, 'elite':1,
-             'ad listings':8,
+             'ad listings':8, 'alcohol dependency':2, 'sponsored':2, 'sponsored listing':4,
 
              'singh web-services':15,
              'slater.net.com.group':15,
@@ -241,10 +241,10 @@ spam_dict = {'success':1, 'market':2, 'marketing':2, 'markting':2, 'merchant':1,
              'do you want to be with me':10, 'orgasm':3,
 
              # school
-             'diploma':8, 'degree':2, 'university':1, 'mba':2, 'm.b.a.':5, 'career':1, 'back to school':1,
+             'diploma':8, 'degree':2, 'university':1, 'mba':2, 'm.b.a.':5, 'career':2, 'back to school':1,
              'back to school':2, 'graduate':1, 'job advancement':5, 'one year program':5,
 
-             'quality cigars':5,
+             'quality cigars':5, 'impress your boss':3,
              'watches':2, 'credit card':2, 'contract':1, 'pimsleur approach':15, 'pimsleurapproach':8,
              'production capacity':1, 'price':1, 'sales':1, 'eharmony':3,'drugstore':2,'cheapest':1,
              'cash':3, 'loan':3, 'breaking news':5, 'best price':2, 'home and office':2,
@@ -273,7 +273,7 @@ spam_dict = {'success':1, 'market':2, 'marketing':2, 'markting':2, 'merchant':1,
              'saving money':3, 'overpaying for':3, 'additional.charges':2,
 
              # jobs
-             'abundant openings':3,
+             'abundant openings':3, 'employers will hire':5,
 
              # insurance
              'insurance':2, 'lifeinsurance':3, 'life[ -]insurance':3, 'life[ -]policy':3, 'insurance offer':3, 'medicare':5,
@@ -323,6 +323,7 @@ spam_dict = {'success':1, 'market':2, 'marketing':2, 'markting':2, 'merchant':1,
              'refrain from future messages':8, 'to stop information':8,
 
              'looking to.(quit|end).(future|further|these).\w+ads\W':10,
+             'if you would.rather not-get-future tripads':10,
              'if you would.(prefer|rather).quit.(future|further|these).\w+ads\W':10,
              'If you would-prefer to not.receive such healthads-you can visit':10,
              'if you want to end messaging':10,
@@ -334,6 +335,8 @@ spam_dict = {'success':1, 'market':2, 'marketing':2, 'markting':2, 'merchant':1,
              'Want to change how you receive these emails':10,
              'terminate messages at this location':10,
              'put an end to info':10,
+             'take you off of the list':10,
+             'want to receive these emails from us in the future':10,
 
              # address at bottom of email
              'po box.*?,\s?austin tx':15,
@@ -356,6 +359,8 @@ spam_dict = {'success':1, 'market':2, 'marketing':2, 'markting':2, 'merchant':1,
              '7471 north camino dela tierra':15,
              '1948 abbey lane danville in':15,
              '760 farm road two one one marlborough ma':15,
+             '4 2 8 3  b u c k s k i n  t r l h a m p s t e a d m d 2 1 0 7 4':15,
+             '319 ferndale road':15,
 
              'old folk saying':2, 'proverb':2,
 
@@ -1345,7 +1350,6 @@ class BlamMilter(ppymilter.server.PpyMilter):
 
         bld = {'zen.spamhaus.org':sh_reasons,
                'bb.barracudacentral.org':sh_reasons,
-               'multi.surbl.org':surbl_reasons,
                }
 
         for svc,reasons in bld.items():
@@ -1414,7 +1418,8 @@ class BlamMilter(ppymilter.server.PpyMilter):
                'bb.barracudacentral.org':sh_reasons,
                'multi.surbl.org':surbl_reasons,
                'multi.uribl.com':uribl_reasons,
-               'sbl.spamhaus.org':{},
+               'dbl.spamhaus.org':sh_reasons,
+               'dob.sibl.support-intelligence.net':{},
                }
 
         response = []
