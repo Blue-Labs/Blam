@@ -208,7 +208,8 @@ spam_dict = {'success':1, 'market':2, 'marketing':2, 'markting':2, 'merchant':1,
              'must have':2, 'soldier':1, 'us army':1, 'survival tool':2, 'protect your loved':2, 'starbucks':1, 'coffee':1,
              'reward':1, 'reward.?points':1, 'going to expire':1, 'will expire':1, 'notice':1, 'notice #\d+':5, 'go here':1, 'claim your':1,
              'complimentary':1, 'follow the link':1, 'redeem':1, 'olive.?garden':1, 'bonus':1, 'simply visit':1,
-             'gourmet':2, 'amenities':1, 'comfortable':1, 'class flights?':4,
+             'gourmet':2, 'amenities':1, 'comfortable':1, 'class flights?':4, 'delivered right to your door':2,
+             'home cooked meals':1, 'loved ones':1,
 
              'stylish ideas':2, 'ideas for your':2, 'outdated kitchen':10, 'kitchen ideas':4, 'flashlight':3,
              'mothers day':2, 'you still have time':2, 'get there in time':2, 'order today':2, 'luxury':2, 'premium':1, 'elite':1,
@@ -304,7 +305,7 @@ spam_dict = {'success':1, 'market':2, 'marketing':2, 'markting':2, 'merchant':1,
              'irs':5, 'irs account':18, 'tax payment':3, 'irs-service':18, 'internal revenue service':5,
 
              # removal instructions and "opt out here"
-             'your privacy is important to us':5, 'update( \w+|) here':5, 'stop/forego':15, 'this-link':10,
+             'your privacy is important to us':5, 'update( \w+|) here':5, 'stop/forego':15, 'this-link':10, 'to opt out':5,
              'go here to':15, 'visit here to':15, 'visit us here to':15, 'go here for':15, 'solicite':15, 'aqui':5, 'aquí':5,
              'to be removed':10, 'message discharge instructions':10, 'unsubscribe':.5, 'as unwanted':1, 'unsub.now':10,
              'to not see messages form us':18, 'U-R-L':10, 'prefer not to receive future emails, Unsubscribe Here':5,
@@ -361,6 +362,7 @@ spam_dict = {'success':1, 'market':2, 'marketing':2, 'markting':2, 'merchant':1,
              '760 farm road two one one marlborough ma':15,
              '4 2 8 3  b u c k s k i n  t r l h a m p s t e a d m d 2 1 0 7 4':15,
              '319 ferndale road':15,
+             '2331 e lk dr':15,
 
              'old folk saying':2, 'proverb':2,
 
