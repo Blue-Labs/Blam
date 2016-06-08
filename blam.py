@@ -1646,7 +1646,9 @@ class BlamMilter(ppymilter.server.PpyMilter):
                     for z in self.resolver.query(__rdata.exchange.to_text(), __rdtype):
                         answers.append(z.address)
                 except (dns.resolver.NXDOMAIN, dns.resolver.NoNameservers, dns.resolver.NoAnswer, dns.exception.Timeout): pass
-                except Exception as e: self.printme('resolve mx; problem resolving {} on {}: {}'.format(__rdtype,__rdata.exchange.to_text(),e), console=True)
+                except Exception as e:
+                    self.printme('resolve mx; problem resolving {} on {}: {}'.format(__rdtype,__rdata.exchange.to_text(),e), console=True)
+                    traceback.print_exc()
 
         self.printme('IPs of MX({}) are: {}'.format(host, answers))
 
@@ -1684,6 +1686,9 @@ class BlamMilter(ppymilter.server.PpyMilter):
 
     def OnHelo(self, cmd, helo):
         #self.printme('#HELO#')
+        if isinstance(helo, bytes):
+            helo = helo.decode()
+
         if self.helo:
             if helo in self.helo:
                 # need a way to identify starttls and not print out this message if so
