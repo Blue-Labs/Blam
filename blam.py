@@ -1617,11 +1617,11 @@ class BlamMilter(ppymilter.server.PpyMilter):
         self.printme('Connect ▶ {host}, {ip}:{port}'.format(host=hostname, port=port, ip=address), console=True)
 
         if hostname==None and port==None and address==None:
+            self.printme('host/port/address=None connection made to Blam, dropping', console=True)
             return
 
-        self.quit_location = 'OnConnect'
-        self.hostname = hostname
-
+        self.quit_location   = 'OnConnect'
+        self.hostname        = hostname
         self.client_address  = address
         self.client_port     = port
 
@@ -1830,7 +1830,7 @@ class BlamMilter(ppymilter.server.PpyMilter):
         return self.Continue()
 
 
-    ''' make this into a netaddr.IPSet() '''
+    ''' make this into a netaddr.IPSet() and pull from .conf file '''
     def is_bluelabs_ip(self, ip):
         if not isinstance(ip, (ipaddress.IPv4Address, ipaddress.IPv6Address, ipaddress.IPv4Network, ipaddress.IPv6Network)):
             if '/' in ip:
@@ -1848,7 +1848,8 @@ class BlamMilter(ppymilter.server.PpyMilter):
                      ipaddress.ip_network('107.170.82.162/32'), # sea-dragon
                      ipaddress.ip_network('97.107.142.140/32'), # mustang
                      ipaddress.ip_network('24.250.16.144/32'),     # smvfd/engine2
-                     ipaddress.ip_network('10.255.0.0/22'),     # bluelabs vpn
+                     ipaddress.ip_network('10.69.0.0/24'),     # bluelabs vpn
+                     ipaddress.ip_network('10.68.0.0/24'),     # dragonmango vpn
                      ipaddress.ip_network('127.0.0.1/32'),      # localhost for a blam client
                    )
 
@@ -1951,14 +1952,17 @@ class BlamMilter(ppymilter.server.PpyMilter):
             self.mod_dfw_score(self.dfw.grace_score +1, 'DNSBL: {}'.format(response), ensure_positive_penalty=True)
             return self.CustomReply(550, '5.5.2 {}'.format(response), '5.5.2')
 
-        _dnsbl = self.check_dnsbl_by_name(self.hostname)
-        if _dnsbl:
-            response = ', '.join(_dnsbl)
+        # if the MTA couldn't resolve the hostname, the hostname becomes the connecting
+        # IP inside [] and we just checked it in the DNSBLs as an IP. we keep the [] wrapper
+        # so we don't repeat tests
+        if not (self.hostname[0]=='[' and self.hostname[-1]==']'):
+            _dnsbl = self.check_dnsbl_by_name(self.hostname)
+            if _dnsbl:
+                response = ', '.join(_dnsbl)
 
-            # early quit
-            self.mod_dfw_score(self.dfw.grace_score +1, 'DNSBL: {}'.format(response), ensure_positive_penalty=True)
-            return self.CustomReply(550, '5.5.2 {}'.format(response), '5.5.2')
-
+                # early quit
+                self.mod_dfw_score(self.dfw.grace_score +1, 'DNSBL: {}'.format(response), ensure_positive_penalty=True)
+                return self.CustomReply(550, '5.5.2 {}'.format(response), '5.5.2')
 
         helo = self.helo[-1]
         # apply a 0-10 penalty for sessions. 0 for full 256bit, 10 for no encryption
@@ -1974,7 +1978,7 @@ class BlamMilter(ppymilter.server.PpyMilter):
             return self.CustomReply(550, '5.5.2 ylmf-pc spam bot', '5.5.2')
 
         # broken shitty software in Brother printers
-        if helo == 'BRNECD487' and self.client_address == '10.255.0.70':
+        if helo == 'BRNECD487' and is_bluelabs_ip(self.client_address):
             self.whitelisted = True
             return
 
