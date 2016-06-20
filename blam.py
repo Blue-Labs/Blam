@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 
-__version__  = '3.0.27'
+__version__  = '3.1.0'
 __author__   = 'David Ford <david@blue-labs.org>'
 __email__    = 'david@blue-labs.org'
-__date__     = '2016-May-31 18:06E'
+__date__     = '2016-Jun-18 00:56E'
 __license__  = 'Apache 2.0'
 
 """
@@ -491,7 +491,32 @@ rfc1918 = netaddr.IPSet()
 
 # use this instead of a real DFW instance during unit testing
 class VoidDFW():
-    grace_score = 10
+    def __init__(self, printfunc=None):
+        self.grace_score = 10
+        if not printfunc:
+            self._logger = logging.getLogger('VoidDFW')
+            self._logger.setLevel(logging.DEBUG)
+            self._logger.set_printer = self.set_printer
+            self.info('using new logging.Logger instance')
+        else:
+            self._logger = printfunc
+
+    def __getattribute__(self, k):
+        if k in ('critical','error','warning','info','debug'):
+            try:
+                return object.__getattribute__(self, 'printer')
+            except:
+                pass
+            x = object.__getattribute__(self, '_logger')
+            c = object.__getattribute__(x, k)
+            return c
+        return object.__getattribute__(self, k)
+
+    def set_printer(self, func):
+        self.printer = func
+
+    def forgive_when(self, *args):
+        pass
 
 
 def pickansi():
@@ -976,7 +1001,7 @@ class BlamMilter(ppymilter.server.PpyMilter):
         self.logger = additional['logger']
 
         if not (additional and 'config' in additional):
-            additional['config'] = []
+            additional['config'] = {'main':{'spool dir':'/tmp', 'tld refresh hours':"1"},}
         if not (additional and 'db' in additional):
             additional['db'] = None
             self.printme('No DB instance provided, no preferences available', level=logging.WARNING)
@@ -1180,10 +1205,7 @@ class BlamMilter(ppymilter.server.PpyMilter):
             print(e.__class__)
             print(e.__class__.__name__)
             print(e)
-            traceback.print_exc(limit=5)
-
-        #if not _blam:
-        #    self.st = _st
+            self.printme('{}'.format( traceback.format_exc(limit=8) ), console=True)
 
 
     def cams_notify(self, msg):
@@ -1231,7 +1253,7 @@ class BlamMilter(ppymilter.server.PpyMilter):
         if not old == self.dfw_penalty:
             if reason:
                 if value > 0:
-                    self.penalties.append(reason)
+                    self.penalties.append((reason,value))
                 reason = ': ' + reason
             self.printme('DFW score {:>6.2f} \u21e8 {:>6.2f}{}'.format(old, self.dfw_penalty, reason), console=True)
 
@@ -1320,7 +1342,7 @@ class BlamMilter(ppymilter.server.PpyMilter):
             match = re.match('\[?IPv6:([\dabcdef:]+)\]?', hostname, flags=re.I)
 
         try:
-            answers = self.resolver.query(hostname, 'A')
+            answers = [x.to_text() for x in self.resolver.query(hostname, 'A')]
             for a in sorted([str(a) for a in answers], key=socket.inet_aton):
                 self.printme('  A: {}'.format(a), logging.DEBUG)
             return True
@@ -1345,7 +1367,7 @@ class BlamMilter(ppymilter.server.PpyMilter):
                     '127.0.1.0':'Spamhaus Domain Blocklist',
                   }
 
-        addr = str(dns.reversename.from_address(addr)).replace('.in-addr.arpa.','')
+        addr = str(dns.reversename.from_address(addr)).replace('.in-addr.arpa.','').replace('.ip6.arpa.','')
         self.printme('query by ip for {}'.format(addr))
         response = []
         answers=[]
@@ -1357,14 +1379,16 @@ class BlamMilter(ppymilter.server.PpyMilter):
         for svc,reasons in bld.items():
             q = addr + '.' + svc
             try:
-                answers = self.resolver.query(q, 'A')
+
+                answers = [x.to_text() for x in self.resolver.query(q, 'A')]
             except (dns.resolver.NXDOMAIN, dns.resolver.NoNameservers, dns.resolver.NoAnswer, dns.exception.Timeout): pass
             except Exception as e: self.printme('DNSBL/ip; problem resolving {}: {}'.format(q, e), console=True)
 
             for answer in answers:
-                if answer.address in reasons:
-                    if not reasons[answer.address] in response:
-                        response.append(reasons[answer.address])
+                self.printme('\x1b[1;33mDBG.1>> q: {} is type: {}\x1b[0m'.format(answer, type(answer)))
+                if answer in reasons:
+                    if not reasons[answer] in response:
+                        response.append(reasons[answer])
 
         if response:
             self.printme('target found in DNSBL: {}'.format(response))
@@ -1375,6 +1399,9 @@ class BlamMilter(ppymilter.server.PpyMilter):
 
 
     def check_dnsbl_by_name(self, addr):
+        if not addr:
+            print('uh oh!')
+
         sh_reasons = { '127.0.0.2':'Static UBE sources, verified spam services (hosting or support) and ROKSO spammers',
                     '127.0.0.3':'Static UBE sources, verified spam services (hosting or support) and ROKSO spammers',
                     '127.0.0.4':'Illegal 3rd party exploits, including proxies, worms and trojan exploits',
@@ -1431,17 +1458,19 @@ class BlamMilter(ppymilter.server.PpyMilter):
             answers=[]
 
             try:
-                answers = self.resolver.query(q, 'A')
+                answers = [x.to_text() for x in self.resolver.query(q, 'A')]
+                self.printme('fuck me up the ass')
             except (dns.resolver.NXDOMAIN, dns.resolver.NoNameservers, dns.resolver.NoAnswer, dns.exception.Timeout): pass
             except Exception as e: self.printme('DNSBL/host; problem resolving {}: {}'.format(q, e), console=True)
 
             for answer in answers:
-                if answer.address in reasons:
+                self.printme('\x1b[1;33mDBG.2>> q: {} is type: {}\x1b[0m'.format(answer, type(answer)))
+                if answer in reasons:
                     # don't list muliple hits please
-                    if not reasons[answer.address] in response:
+                    if not reasons[answer] in response:
                         if svc.startswith('multi'):
-                            self.printme('DNSBL/{}; got answer {}'.format(svc, answer.address), console=True)
-                            l_octet = int(answer.address.split('.')[-1])
+                            self.printme('DNSBL/{}; got answer {}'.format(svc, answer), console=True)
+                            l_octet = int(answer.split('.')[-1])
                             for bit in range(0,8):
                                 if l_octet & (1<<bit):
                                     s = '127.0.0.{}'.format(l_octet)
@@ -1450,9 +1479,9 @@ class BlamMilter(ppymilter.server.PpyMilter):
                                     else:
                                         self.printme('DNSBL/{}; got unexpected answer {}'.format(svc, answer.address))
                         else:
-                            response.append(reasons[answer.address])
+                            response.append(reasons[answer])
                 else:
-                    self.printme('DNSBL/{}; got unknown answer {}'.format(svc, answer.address))
+                    self.printme('DNSBL/{}; got unknown answer {}'.format(svc, answer))
 
         if response:
             self.printme('target found in DNSBL: {}'.format(response))
@@ -1492,9 +1521,9 @@ class BlamMilter(ppymilter.server.PpyMilter):
             find = '.'.join(hostparts)
             self.printme('reduce and check_mx({})'.format(find))
             try:
-                answers = self.resolver.query(find, 'MX')
-                for a in sorted([str(a) for a in answers]):
-                    self.printme('  MX: {}'.format(a), logging.DEBUG)
+                answers = [x.to_text() for x in self.resolver.query(find, 'MX')]
+                for answer in sorted(answers):
+                    self.printme('  MX: {}'.format(answer), logging.DEBUG)
                 return True
             except:
                 pass
@@ -1535,6 +1564,8 @@ class BlamMilter(ppymilter.server.PpyMilter):
         self.quit_location = 'OnMacros'
         self.last_active = datetime.datetime.utcnow()
 
+        #self.printme('macro cmd:{!r}, macro:{!r}, data:{!r}'.format(cmd,macro,data), console=True)
+
         d={}
         if len(data):
             d = dict(zip(data[::2], data[1::2]))
@@ -1567,7 +1598,8 @@ class BlamMilter(ppymilter.server.PpyMilter):
             if nmacros:
                 self.print_as_pairs(self.macros, bkeys=dkeys)
 
-        self.db.check_notified()
+        if not self.unittest:
+            self.db.check_notified()
 
 
     def OnData(self, cmd, data):
@@ -1629,11 +1661,15 @@ class BlamMilter(ppymilter.server.PpyMilter):
 
 
     def _resolve_mx_host_to_ip(self, host):
+        if isinstance(host, bytes):
+            self.printme('{!r} came to us as bytes object!'.format(host))
+            host = host.decode()
+
         answers = []
         __mxh   = []
         try:
             # get all the MX hostnames
-            __mxh = self.resolver.query(host, 'MX')
+            __mxh = [x.to_text() for x in self.resolver.query(host, 'MX')]
         except (dns.resolver.NXDOMAIN, dns.resolver.NoNameservers, dns.resolver.NoAnswer, dns.exception.Timeout): pass
         except Exception as e: self.printme('problem in MX resolution of {}: {}'.format(host, e), console=True)
 
@@ -1643,12 +1679,12 @@ class BlamMilter(ppymilter.server.PpyMilter):
         for __rdtype in ('A', 'AAAA'):
             for __rdata in __mxh:
                 try:
-                    for z in self.resolver.query(__rdata.exchange.to_text(), __rdtype):
-                        answers.append(z.address)
+                    answers = [x.to_text() for x in self.resolver.query(__rdata, __rdtype)]
+                    self.printme('\x1b[1;34mDBG.5>> {}'.format(answers))
                 except (dns.resolver.NXDOMAIN, dns.resolver.NoNameservers, dns.resolver.NoAnswer, dns.exception.Timeout): pass
                 except Exception as e:
-                    self.printme('resolve mx; problem resolving {} on {}: {}'.format(__rdtype,__rdata.exchange.to_text(),e), console=True)
-                    traceback.print_exc()
+                    self.printme('resolve mx; problem resolving {} on {}: {}'.format(__rdtype,__rdata,e), console=True)
+                    self.printme('{}'.format( traceback.format_exc(limit=8) ), console=True)
 
         self.printme('IPs of MX({}) are: {}'.format(host, answers))
 
@@ -1659,8 +1695,8 @@ class BlamMilter(ppymilter.server.PpyMilter):
         answers=[]
         for __rdtype in ('A', 'AAAA'):
             try:
-                for z in self.resolver.query(host, __rdtype):
-                    answers.append(z.address)
+                answers = [x.to_text() for x in self.resolver.query(host, __rdtype)]
+                self.printme('\x1b[1;34mDBG.6>> {}'.format(answers))
             except (dns.resolver.NXDOMAIN, dns.resolver.NoNameservers, dns.resolver.NoAnswer, dns.exception.Timeout):
                 pass
             except Exception as e:
@@ -1673,7 +1709,7 @@ class BlamMilter(ppymilter.server.PpyMilter):
     def _resolve_ptr_ip_to_host(self, ip):
         __rdata=[]
         try:
-            __rdata = [str(x) for x in self.resolver.query(dns.reversename.from_address(ip), 'PTR')]
+            __rdata = [x.to_text() for x in self.resolver.query(dns.reversename.from_address(ip), 'PTR')]
         except (dns.resolver.NXDOMAIN, dns.resolver.NoNameservers, dns.resolver.NoAnswer, dns.exception.Timeout):
             pass
 
@@ -1769,9 +1805,9 @@ class BlamMilter(ppymilter.server.PpyMilter):
                     h=self.helo[-1]
 
                     res = self._spf_check(i,s,h)
-                    self.printme('\033[37mSPF result for "MAIL FROM": {}\033[0m'.format(res), level=logging.DEBUG)
+                    self.printme('\033[37mSPF result for "MAIL FROM": {}, {}\033[0m'.format(res,s,i), level=logging.DEBUG)
                     if res[0] == 'fail':
-                        self.mod_dfw_score(self.dfw.grace_score +1, 'SPF designates your IP as a not-permitted source', ensure_positive_penalty=True)
+                        self.mod_dfw_score(self.dfw.grace_score +1, 'SPF designates your IP as a not-permitted source; {}', ensure_positive_penalty=True)
                         return self.Continue()
                     elif res[0] == 'softfail':
                         # discouraged use, penalize
@@ -2003,8 +2039,9 @@ class BlamMilter(ppymilter.server.PpyMilter):
             try:
                 inaddrarpa = dns.reversename.from_address(helo)
                 ptrs = self.resolver.query(inaddrarpa, 'PTR')
-                for h in ptrs:
-                    self.printme('HELO: resolved: {}'.format(h.to_text()))
+                for answer in ptrs:
+                    self.printme('\x1b[1;33mDBG.3>> q: {} is type: {}\x1b[0m'.format(answer, type(answer)))
+                    self.printme('HELO: resolved: {}'.format(answer.to_text()))
 
             except (dns.resolver.NXDOMAIN, dns.resolver.NoNameservers, dns.resolver.NoAnswer, dns.exception.Timeout):
                 pass
@@ -2059,12 +2096,19 @@ class BlamMilter(ppymilter.server.PpyMilter):
         # this situation.
         me = self.client_address.startswith('IPv6:') and self.client_address[5:] or self.client_address
 
+        # dnspython does everything in bytes now it appears
+        if isinstance(me, bytes):
+            me = me.decode()
+
         #if not [ x for x in answers if x == me]:
         #    self.mod_dfw_score(10, 'DNS lookup of HELO greeting ({}) is {} and'
         #        ' does not include the IP you came from: {}. See https://blue-labs.org/blocked_mail/index.html'
         #        .format(helo, answers, self.client_address))
+        self.printme('\x1b[1;35m HELO is {}'.format(helo))
+        self.printme('\x1b[1;35m answers is {}, me is {}\x1b[0m'.format(answers, me))
         if me in answers:
             return
+        self.printme('\x1b[1;35m answersB is {}\x1b[0m'.format(answers))
 
         PTR_to_hosts = []
         # get the ptr records, turn each of them into hostnames, then look up each of those hostnames for PTR records..do they match me?
@@ -2077,13 +2121,20 @@ class BlamMilter(ppymilter.server.PpyMilter):
         # ok, some sites have some really funky two-evolution chains before resolution is satisfied. whitehouse.gov comes to mind.
         answers2 = []
 
+        self.printme('\x1b[1;35m answers2.1 is {}\x1b[0m'.format(answers))
         # get all the hostnames of the IPs we have so far
         for host in PTR_to_hosts:
             # get all the MX hostnames for this host
+            if isinstance(host, bytes):
+                self.printme('oh shit, {} is bytes'.format(host), console=True)
+                host = host.decode()
             __mxh  = self._resolve_mx_host_to_ip(host)
             __mxh += self._resolve_a_host_to_ip(host)
             self.printme('MX/A/AAAA lookup answers are: {}'.format(__mxh))
             answers2 += __mxh
+
+        answers2 = [a.decode() if hasattr(a, 'decode') else a for a in answers2]
+        self.printme('\x1b[1;35m answers2.2 is {}\x1b[0m'.format(answers2))
 
         #if not answers2:
         #    self.mod_dfw_score(10, 'DNS lookup of HELO greeting ({}) is {} and'
@@ -2113,6 +2164,7 @@ class BlamMilter(ppymilter.server.PpyMilter):
 
             answers = list(set(answers + answers3))
 
+        answers = [a.decode() if hasattr(a, 'decode') else a for a in answers]
         if me in answers:
             return
 
@@ -2154,7 +2206,7 @@ class BlamMilter(ppymilter.server.PpyMilter):
             self.printme('spf.query(i={}, s={}, h={}) = {}'.format(i, s, h, res), level=logging.DEBUG)
         except Exception as e:
             self.printme(ansi['bred']+'Failed SPF query for {}, {}, {} because: {}'.format(i, s, h, e)+ansi['none'], console=True)
-            traceback.print_exc(8)
+            self.printme('{}'.format( traceback.format_exc(limit=8) ), console=True)
 
         return res
 
@@ -2283,7 +2335,7 @@ class BlamMilter(ppymilter.server.PpyMilter):
             except Exception as e:
                 self.printme('erps: {}'.format(e), console=True)
                 self.printme('cannot recode: {}: {!r}'.format(lhs, rhs), console=True)
-                self.printme('{}'.format( traceback.format_exc(limit=3) ), console=True)
+                self.printme('{}'.format( traceback.format_exc(limit=8) ), console=True)
 
             headers.append( (lhs.lower(),rhs.lower()) )
             self.printme ('▶{:20.20} {!r}'.format(lhs+':',rhs), logging.DEBUG)
@@ -2413,7 +2465,7 @@ class BlamMilter(ppymilter.server.PpyMilter):
 
             # xxx-xxxx random letters headers
             if re.fullmatch('\w{2,4}[_-]\w{2,6}', lhs):
-                if not lhs.split('-')[0] in ('list','user','app'):
+                if not lhs.split('-')[0] in ('list','user','app','dkim'):
                     self.mod_dfw_score(10, 'xxx-xxxx header:{} f(10)*1=10'.format(lhs))
 
 
@@ -2704,7 +2756,7 @@ class BlamMilter(ppymilter.server.PpyMilter):
                                 burls[_url[link]] += 1
 
                             for _url in sorted(burls):
-                                _c = len(burls[_url])
+                                _c = burls[_url]
                                 self.mod_dfw_score(3*_c, 'url pattern foo1~...~fooN; f({}})*{}={} occurs {} times: {}'.format(3, _c, 3*_c, _url))
 
                             # applies to visual text
@@ -3198,6 +3250,10 @@ class BlamMilter(ppymilter.server.PpyMilter):
                 self.mta_short,
                 self.reasons))
 
+        if self.penalties:
+            self.printme('DFW penalties:', console=True)
+            for i,note in enumerate(self.penalties, 1):
+                self.printme('  {:> 3}: {}\n'.format(i,note), console=True)
 
         # ARF
         if (self.dfw_penalty >= self.dfw.grace_score) and not (self.whitelisted or self.hostname in self.pre_approved):
@@ -3283,7 +3339,7 @@ class BlamMilter(ppymilter.server.PpyMilter):
                         ar.characterize('Reported-Domain', reported_domain)
 
                         ar.set_message(enc_p)
-                        ar.add_text_notes(self.penalties)
+                        ar.add_text_notes([p for p,v in self.penalties])
 
                         ar_username = arfc.get('smtp username')
                         ar_password = arfc.get('smtp password')
@@ -3430,7 +3486,7 @@ def main(logger):
     except KeyboardInterrupt:
         print('\033[2D\033[K\033[A')
     except:
-        traceback.print_exc()
+        self.printme('{}'.format( traceback.format_exc(limit=8) ), console=True)
 
     _dfw.shutdown()
     _cams.shutdown()
