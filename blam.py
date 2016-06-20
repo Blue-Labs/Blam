@@ -1476,7 +1476,6 @@ class BlamMilter(ppymilter.server.PpyMilter):
             except Exception as e: self.printme('DNSBL/host; problem resolving {}: {}'.format(q, e), console=True)
 
             for answer in answers:
-                self.printme('\x1b[1;33mDBG.2>> q: {} is type: {}\x1b[0m'.format(answer, type(answer)))
                 if answer in reasons:
                     # don't list muliple hits please
                     if not reasons[answer] in response:
@@ -1707,7 +1706,7 @@ class BlamMilter(ppymilter.server.PpyMilter):
         answers=[]
         for __rdtype in ('A', 'AAAA'):
             try:
-                answers = [x.to_text() for x in self.resolver.query(host, __rdtype)]
+                answers += [x.to_text() for x in self.resolver.query(host, __rdtype)]
                 self.printme('\x1b[1;34mDBG.6>> {}'.format(answers))
             except (dns.resolver.NXDOMAIN, dns.resolver.NoNameservers, dns.resolver.NoAnswer, dns.exception.Timeout):
                 pass
@@ -2054,7 +2053,7 @@ class BlamMilter(ppymilter.server.PpyMilter):
 
             try:
                 inaddrarpa = dns.reversename.from_address(helo)
-                ptrs = self.resolver.query(inaddrarpa, 'PTR')
+                ptrs = [x.to_text() for x in self.resolver.query(inaddrarpa, 'PTR')]
                 for answer in ptrs:
                     self.printme('\x1b[1;33mDBG.3>> q: {} is type: {}\x1b[0m'.format(answer, type(answer)))
                     self.printme('HELO: resolved: {}'.format(answer.to_text()))
