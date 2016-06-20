@@ -1373,6 +1373,7 @@ class BlamMilter(ppymilter.server.PpyMilter):
         answers=[]
 
         # remember to NEVER do IP lookups at dbl.spamhaus.org
+        # consequently, zen, is an IP based lookup only, no hostnames
         bld = {'zen.spamhaus.org':sh_reasons,
                'bb.barracudacentral.org':sh_reasons,
                }
@@ -1456,8 +1457,7 @@ class BlamMilter(ppymilter.server.PpyMilter):
             except:
                 pass
 
-        bld = {'zen.spamhaus.org':sh_reasons,
-               'bb.barracudacentral.org':sh_reasons,
+        bld = {'bb.barracudacentral.org':sh_reasons,
                'multi.surbl.org':surbl_reasons,
                'multi.uribl.com':uribl_reasons,
                'dbl.spamhaus.org':dbl_reasons,
