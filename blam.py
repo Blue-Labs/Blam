@@ -1367,30 +1367,55 @@ class BlamMilter(ppymilter.server.PpyMilter):
                     '127.0.1.0':'Spamhaus Domain Blocklist',
                   }
 
+
         addr = str(dns.reversename.from_address(addr)).replace('.in-addr.arpa.','').replace('.ip6.arpa.','')
         self.printme('query by ip for {}'.format(addr))
         response = []
-        answers=[]
+        answers  = []
 
         # remember to NEVER do IP lookups at dbl.spamhaus.org
         # consequently, zen, is an IP based lookup only, no hostnames
         bld = {'zen.spamhaus.org':sh_reasons,
                'bb.barracudacentral.org':sh_reasons,
+               'bl.spamcop.net':{},
+               'dnsbl.sorbs.net':{},
+               #'list.dnswl.org':{},
+               'bl.score.senderscore.com':{},
+               'bl.mailspike.net':{},
                }
 
         for svc,reasons in bld.items():
             q = addr + '.' + svc
             try:
-
                 answers = [x.to_text() for x in self.resolver.query(q, 'A')]
             except (dns.resolver.NXDOMAIN, dns.resolver.NoNameservers, dns.resolver.NoAnswer, dns.exception.Timeout): pass
             except Exception as e: self.printme('DNSBL/ip; problem resolving {}: {}'.format(q, e), console=True)
 
             for answer in answers:
                 self.printme('\x1b[1;33mDBG.1>> q: {} is type: {}\x1b[0m'.format(answer, type(answer)))
+                if svc == 'bl.mailspike.net':
+                    # reputation of 10 - 20, where 10 is worst and 20 is best
+                    last_octet = int(answer.split('.')[-1])
+                    if last_octet <= 13:
+                        # probably bad, http://mailspike.net/usage.html
+                        response.append('Mailspike reputation is {}'.format(last_octet))
+                    else:
+                        self.printme('Mailspike reputation is {}'.format(last_octet), console=True)
+                    continue
+
+
                 if answer in reasons:
                     if not reasons[answer] in response:
                         response.append(reasons[answer])
+                else:
+                    # see if there's a text record.
+                    txt_answers = []
+                    try:
+                        txt_answers = [x.to_text() for x in self.resolver.query(q, 'TXT')]
+                    except (dns.resolver.NXDOMAIN, dns.resolver.NoNameservers, dns.resolver.NoAnswer, dns.exception.Timeout): pass
+                    except Exception as e: self.printme('DNSBL/ip; problem resolving {}: {}'.format(q, e), console=True)
+                    self.printme('DNSBL/{}; got unknown answer {}, TXT records: {}'.format(svc, answer, txt_answers))
+                    response.append('DNSBL/{}; got unknown answer {}, TXT records: {}'.format(svc, answer, txt_answers))
 
         if response:
             self.printme('target found in DNSBL: {}'.format(response))
@@ -1492,7 +1517,14 @@ class BlamMilter(ppymilter.server.PpyMilter):
                         else:
                             response.append(reasons[answer])
                 else:
-                    self.printme('DNSBL/{}; got unknown answer {}'.format(svc, answer))
+                    # see if there's a text record.
+                    txt_answers = []
+                    try:
+                        txt_answers = [x.to_text() for x in self.resolver.query(q, 'TXT')]
+                    except (dns.resolver.NXDOMAIN, dns.resolver.NoNameservers, dns.resolver.NoAnswer, dns.exception.Timeout): pass
+                    except Exception as e: self.printme('DNSBL/ip; problem resolving {}: {}'.format(q, e), console=True)
+                    self.printme('DNSBL/{}; got unknown answer {}, TXT records: {}'.format(svc, answer, txt_answers))
+                    response.append('DNSBL/{}; got unknown answer {}, TXT records: {}'.format(svc, answer, txt_answers))
 
         if response:
             self.printme('target found in DNSBL: {}'.format(response))
@@ -2991,7 +3023,12 @@ class BlamMilter(ppymilter.server.PpyMilter):
         # header insertion happens at this phase
         self.printme ('Inserting Blam headers', logging.DEBUG)
         self.actions.append(self.AddHeader('X-Blam', 'Blue-Labs Anti-Muggle filter v{}, from {}'.format(__version__, self.st[0])))
-        self.actions.append(self.AddHeader('X-Blam-Report', 'dfw_penalty: {}'.format(self.dfw_penalty)))
+        self.actions.append(self.AddHeader('X-Blam-DFW-Score', 'dfw_penalty: {}'.format(self.dfw_penalty)))
+
+        # add the penalties we know about now as headers
+        if self.penalties:
+            penaltybox = '\r\n    '.join(['{:> 3}: {}'.format(i,note) for i,note in enumerate(self.penalties, 1)])
+            self.actions.append(self.AddHeader('X-Blam-Report','DFW penalties\r\n    '+penaltybox))
 
         self.left_early = False
 
