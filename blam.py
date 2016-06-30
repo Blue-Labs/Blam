@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 
-__version__  = '3.1.0'
+__version__  = '3.2.0'
 __author__   = 'David Ford <david@blue-labs.org>'
 __email__    = 'david@blue-labs.org'
-__date__     = '2016-Jun-18 00:56E'
+__date__     = '2016-Jun-25 19:38E'
 __license__  = 'Apache 2.0'
 
 """
@@ -133,7 +133,7 @@ from lxml.cssselect import CSSSelector
 # bluelabs modules
 sys.path.append('/var/bluelabs/python')
 import cams, dfw, arf
-
+import wampcams as wc
 
 # we love BS4, but OMGWTF
 # https://gist.github.com/FirefighterBlu3/db3b8962c44291cd19e0#file-bs4-no-html-translations-py
@@ -200,7 +200,7 @@ wrapper  = textwrap.TextWrapper(initial_indent='', subsequent_indent=' '*16+ansi
 spam_dict = {'success':1, 'market':2, 'marketing':2, 'markting':2, 'merchant':1, 'sephora.fr':1, 'affipro':1, 'b2b':1,
              'mailpalmaresduweb.com':1, 'replica':1, 'promotion':1, 'target':.25, 'replica':1, 'freestuff':1,
              'diversify':1, 'business':1, 'offers':1, 'offres':1, 'exclusive':2, 'confirm your':3, 'resolution':3,
-             'exclusif':1, 'services':1, 'replica':1, 'promotion':1, 'exclusively here':5, 'last chance':5,
+             'exclusif':1, 'services':1, 'replica':1, 'promotion':1, 'exclusively here':5, 'last chance':2,
              'grow your':3, 'small business':2, 'funding':2, 'redeem':1, 'rewards':1, 'receepts':5, 'valid online':2,
              'comfort of your':5, 'it might be too late':2, 'open now':4, 'capital':2, 'start-up':2,
              'small business':2, 'loan':2, 'approval rating':2, "global who's who":10, '\d+ days only!':3,
@@ -209,7 +209,8 @@ spam_dict = {'success':1, 'market':2, 'marketing':2, 'markting':2, 'merchant':1,
              'reward':1, 'reward.?points':1, 'going to expire':1, 'will expire':1, 'notice':1, 'notice #\d+':5, 'go here':1, 'claim your':1,
              'complimentary':1, 'follow the link':1, 'redeem':1, 'olive.?garden':1, 'bonus':1, 'simply visit':1,
              'gourmet':2, 'amenities':1, 'comfortable':1, 'class flights?':4, 'delivered right to your door':2,
-             'home cooked meals':1, 'loved ones':1,
+             'home cooked meals':1, 'loved ones':1, 'money':2, 'love':1, 'clairvoyance':3, 'change your life':3, 'watch my video':3,
+             'share my gift':3, 'will surprise you':2,
 
              'stylish ideas':2, 'ideas for your':2, 'outdated kitchen':10, 'kitchen ideas':4, 'flashlight':3,
              'mothers day':2, 'you still have time':2, 'get there in time':2, 'order today':2, 'luxury':2, 'premium':1, 'elite':1,
@@ -218,6 +219,7 @@ spam_dict = {'success':1, 'market':2, 'marketing':2, 'markting':2, 'merchant':1,
              'singh web-services':15,
              'slater.net.com.group':15,
              'tomlinson quick-net':15,
+             'MediaClick LLC':15,
 
              # vacuums
              'best vacuums?':3, 'vacuum cleaners?':3, 'upright':.5, 'canister':.5, 'bagless':2, 'cordless':.5, 'cleaning capacity':2,
@@ -328,6 +330,7 @@ spam_dict = {'success':1, 'market':2, 'marketing':2, 'markting':2, 'merchant':1,
              'if you would.(prefer|rather).quit.(future|further|these).\w+ads\W':10,
              'If you would-prefer to not.receive such healthads-you can visit':10,
              'if you want to end messaging':10,
+             "if you'd prefer not to receive future":5,
              'you can.quit these scoreads-':10,
              'you can end-future repairads':10,
              'you can.end.these healthyads-by going.right':10,
@@ -338,6 +341,8 @@ spam_dict = {'success':1, 'market':2, 'marketing':2, 'markting':2, 'merchant':1,
              'put an end to info':10,
              'take you off of the list':10,
              'want to receive these emails from us in the future':10,
+             'to unsubscribe from our list please':10,
+             'you can halt.further camerads':10,
 
              # address at bottom of email
              'po box.*?,\s?austin tx':15,
@@ -363,6 +368,9 @@ spam_dict = {'success':1, 'market':2, 'marketing':2, 'markting':2, 'merchant':1,
              '4 2 8 3  b u c k s k i n  t r l h a m p s t e a d m d 2 1 0 7 4':15,
              '319 ferndale road':15,
              '2331 e lk dr':15,
+             'hl internet group 340 s lemon ave 6470 walnut ca 91789':15,
+             '340 S LEMON AVE # 6470':15,
+             '25883 npark ave,unit a224495,elkhart,in,46514,usa':15,
 
              'old folk saying':2, 'proverb':2,
 
@@ -1056,6 +1064,7 @@ class BlamMilter(ppymilter.server.PpyMilter):
 
         self.headers           = []
         self.macros            = {}
+        self.payload           = b''
         self.stored_macros     = {}
         self.stored_recipients = []
         self.stored_headers    = []
@@ -1077,7 +1086,8 @@ class BlamMilter(ppymilter.server.PpyMilter):
 
 
     def _init_resettable(self, abort=False, initall=False):
-        #self.printme('doing resettable, abort={}, initall={}, has_aborted={}, len(macros)={}/{}'.format(abort,initall,self.has_aborted, len(self.macros),len(self.stored_macros)), console=True)
+        self.printme('doing resettable, abort={}, initall={}, has_aborted={}, len(macros)={}/{} len(payload)={}'\
+            .format(abort,initall,self.has_aborted, len(self.macros),len(self.stored_macros), len(self.payload)), console=True)
 
         # store forever
         self.helo_chad              = ('helo' in self.__dict__ and self.helo) and self.helo[-1] or ''
@@ -1209,12 +1219,13 @@ class BlamMilter(ppymilter.server.PpyMilter):
 
 
     def cams_notify(self, msg):
+        channel = 'hive.alerts.blam'
         if self.cams:
             try:
-                self.cams.notify(msg)
+                self.cams.publish(msg, channel)
             except:
                 t,v,tb = sys.exc_info()
-                self.printme('failed cams notify: {}'.format(v), level=logging.WARNING)
+                self.printme('failed cams publish: {}'.format(v), level=logging.WARNING)
         elif not self.unittest:
             self.printme('No CAMS instance?', console=True)
 
@@ -1367,6 +1378,12 @@ class BlamMilter(ppymilter.server.PpyMilter):
                     '127.0.1.0':'Spamhaus Domain Blocklist',
                   }
 
+        sorbs_reasons = {
+            '127.0.0.6': 'Currently sending spam',
+            '127.0.0.7': 'Exploitable server',
+            '127.0.0.15': 'Virus transmitting server',
+        }
+
 
         addr = str(dns.reversename.from_address(addr)).replace('.in-addr.arpa.','').replace('.ip6.arpa.','')
         self.printme('query by ip for {}'.format(addr))
@@ -1378,10 +1395,11 @@ class BlamMilter(ppymilter.server.PpyMilter):
         bld = {'zen.spamhaus.org':sh_reasons,
                'bb.barracudacentral.org':sh_reasons,
                'bl.spamcop.net':{},
-               'dnsbl.sorbs.net':{},
+               'dnsbl.sorbs.net':sorbs_reasons,
                #'list.dnswl.org':{},
                'bl.score.senderscore.com':{},
                'bl.mailspike.net':{},
+               'psbl.surriel.com':{},
                }
 
         for svc,reasons in bld.items():
@@ -1396,6 +1414,15 @@ class BlamMilter(ppymilter.server.PpyMilter):
                 if svc == 'bl.mailspike.net':
                     # reputation of 10 - 20, where 10 is worst and 20 is best
                     last_octet = int(answer.split('.')[-1])
+                    # this gives us a reputational factor where the worst reputation
+                    # will be outright blocked. this also works for the combined z.mailspike.net
+                    # with responses where the last octet is smaller than 10.
+                    # Ex. worst reputation = 10, 15-last octet is 5*2.4 = 12, our grace score
+                    # 127.0.0.2 would be 15-2, or 13*2.4, or 31.2
+                    # a possibly legit sender of 17 would be -2 with a -4.8 score.
+                    # bear in mind that mailspike often looks positively on spam senders so
+                    # this can be too spammer friendly
+                    factor_ = (15 - last_octet)*(self.dfw.grace_score/5)
                     if last_octet <= 13:
                         # probably bad, http://mailspike.net/usage.html
                         response.append('Mailspike reputation is {}'.format(last_octet))
@@ -1612,6 +1639,7 @@ class BlamMilter(ppymilter.server.PpyMilter):
         d={}
         if len(data):
             d = dict(zip(data[::2], data[1::2]))
+
             dkeys = sorted(d)
             nmacros = 0
             for k in dkeys:
@@ -1645,12 +1673,6 @@ class BlamMilter(ppymilter.server.PpyMilter):
             self.db.check_notified()
 
 
-    def OnData(self, cmd, data):
-        self.printme ('Data({})'.format(data), logging.DEBUG)
-        self.quit_location = 'OnData'
-        return self.Continue()
-
-
     def OnConnect(self, cmd, hostname, family, port, address):
         # this needs to be stored in a memory backed DB, not a global variable
         # this is to track IPs across sessions, that repeatedly attempt to email
@@ -1658,6 +1680,7 @@ class BlamMilter(ppymilter.server.PpyMilter):
         global unknown_local_attempts
 
         self.printme('Connect ▶ {host}, {ip}:{port}'.format(host=hostname, port=port, ip=address), console=True)
+        self.cams_notify('Connect ▶ {host}, {ip}:{port}'.format(host=hostname, port=port, ip=address))
 
         if hostname==None and port==None and address==None:
             self.printme('host/port/address=None connection made to Blam, dropping', console=True)
@@ -1983,6 +2006,33 @@ class BlamMilter(ppymilter.server.PpyMilter):
         return self.Continue()
 
 
+    def OnData(self, cmd, data):
+        self.printme ('Data({})'.format(data), logging.DEBUG)
+        self.quit_location = 'OnData'
+
+        # reconstruct first Received header and inject it at the head of our payload and headers
+        # we can't do this until we get our {i} macro which happens late in the game
+
+        #self.print_as_pairs(self.macros, console=True)
+
+        if True:
+            s = 'from %({client_name})s (%({_})s)' %(self.macros)
+            if '{tls_version}' in self.macros:
+                s += '\r\n    (using %({tls_version})s with cipher %({cipher})s (%({cipher_bits})s))' %(self.macros)
+                if '{cert_subject}' in self.macros:
+                    s += '\r\n    (Client CN "%({cert_subject})s", Issuer "%({cert_issuer})s" (verified WTF-Postfix))' %(self.macros)
+                s += '\r\n    by %({j})s (Postfix) with ESMTPS id %({i})s' %(self.macros)
+            else:
+                s += '\r\n    by %({j})s (Postfix) with ESMTP id %({i})s' %(self.macros)
+            s += '\r\n    for <%({rcpt_addr})s>; ' %(self.macros)
+            s += '{}'.format(self._datetime.strftime('%a, %d %b %Y %H:%M:%S +0000 (UTC)'))
+
+            #self.printme(s, console=True)
+            self.payload = b'Received: '+s.encode()+b'\r\n'+self.payload
+
+        return self.Continue()
+
+
     def _startup_checks(self):
         _dnsbl = self.check_dnsbl_by_ip(self.client_address)
         if _dnsbl:
@@ -2112,6 +2162,7 @@ class BlamMilter(ppymilter.server.PpyMilter):
             if not v in rfc1918:
                 _ = self.check_dnsbl_by_ip(helo)
         except:
+            v = helo
             _ = self.check_dnsbl_by_name(helo)
 
         if _:
@@ -2263,7 +2314,6 @@ class BlamMilter(ppymilter.server.PpyMilter):
         relays  = []
         fuckheads = []
         self.printme('running header tests')
-
         msg = self.email_msg
 
         # find emails relayed through known spammers
@@ -2323,7 +2373,7 @@ class BlamMilter(ppymilter.server.PpyMilter):
                 # tunable, and, we shouldn't really need this - put it into the blacklist
                 fuckheads=[]
                 for relay in relays:
-                    for fuckhead in ['163.net','163data.com.cn','263.net','263xmail.com','bl263.com','bl868.com','bluemilenetworks.net',
+                    for fuckhead in ['163.com', '163.net','163data.com.cn','263.net','263xmail.com','bl263.com','bl868.com','bluemilenetworks.net',
                                      'adval.info','auto-quotes.eu','look-gud.eu','oszo.net','hom-solrpnel.eu',
                                     ]:
                         if relay.endswith('.'+fuckhead):
@@ -3499,12 +3549,13 @@ def main(logger):
 
     _cams = len(config['CAMS'])
     if _cams:
-        _d = config['CAMS']['destination'].split(':')
-        destination = (_d[0],int(_d[1]))
+        #_d = config['CAMS']['destination'].split(':')
+        #destination = (_d[0],int(_d[1]))
 
-        _cams = cams.CAMS(logger=rootlogger, sslcontext=sc, destination=destination)
-        _cams.id = socket.getfqdn().split('.',1)[0] +'/blam'
-        _cams.notify('startup, v%s' %(__version__))
+        #_cams = cams.CAMS(logger=rootlogger, sslcontext=sc, destination=destination)
+        #_cams.id = socket.getfqdn().split('.',1)[0] +'/blam'
+        _cams = wc.WampClient()
+        _cams.publish('blam v%s startup' %(__version__), channel='hive.alerts.blam')
 
     port = int(config['main']['node port'])
 
@@ -3620,7 +3671,7 @@ if __name__ == '__main__':
 
     # todo: move this into main and make it configurable
     rootlogger = logging.getLogger('/Blam')
-    rootlogger.setLevel(logging.DEBUG)
+    rootlogger.setLevel(logging.INFO)
 
     fh = logging.handlers.TimedRotatingFileHandler(filename='/var/log/blam', when='midnight', backupCount=14, encoding='utf-8')
     fm = logging.Formatter(fmt='%(asctime)-8s %(levelname)-.1s %(loadavg)1.1f %(sipport)s %(message)s', datefmt='%H:%M:%S')
