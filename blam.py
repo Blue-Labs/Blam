@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 
-__version__  = '3.2.0'
+__version__  = '3.2.5'
 __author__   = 'David Ford <david@blue-labs.org>'
 __email__    = 'david@blue-labs.org'
-__date__     = '2016-Jun-25 19:38E'
+__date__     = '2016-Oct-31 23:40z'
 __license__  = 'Apache 2.0'
 
 """
@@ -15,12 +15,10 @@ __license__  = 'Apache 2.0'
 ##     2.  smtp callback verification
 ##     3.  reputation scoring
 ##     4.  make a last-seen column in prefs, update it when incoming matches
-##     5.  immediate NOTIFY for spam prefs changes instead of when instancing
 ##
 
-bugs:
 
-Reputation:
+Reputation: (todo)
     store the IP
     want a reputation value (good sends, bad sends), age averaged (timestamps)
     store bad hostname attempts (timestamps)
@@ -90,7 +88,6 @@ CREATE TABLE blam_headers (
 import asyncore
 import configparser
 import cssutils
-import daemon
 import datetime
 import email
 import fcntl
@@ -1218,11 +1215,16 @@ class BlamMilter(ppymilter.server.PpyMilter):
             self.printme('{}'.format( traceback.format_exc(limit=8) ), console=True)
 
 
-    def cams_notify(self, msg):
-        channel = 'hive.alerts.blam'
+    def cams_notify(self, msg, channel=None, priority=None):
+        if not channel:
+            channel = 'hive.alerts.blam'
+
+        if not priority:
+            priority='info'
+
         if self.cams:
             try:
-                self.cams.publish(msg, channel)
+                self.cams.publish(msg, channel, priority)
             except:
                 t,v,tb = sys.exc_info()
                 self.printme('failed cams publish: {}'.format(v), level=logging.WARNING)
@@ -1684,6 +1686,7 @@ class BlamMilter(ppymilter.server.PpyMilter):
 
         if hostname==None and port==None and address==None:
             self.printme('host/port/address=None connection made to Blam, dropping', console=True)
+            self.cams_notify('host/port/address=None connection, this usually means Blam stalled for a while', priority='warning')
             return
 
         self.quit_location   = 'OnConnect'
@@ -1704,6 +1707,7 @@ class BlamMilter(ppymilter.server.PpyMilter):
             else:
                 h = self.client_address
             self.printme(ansi['bred']+'{} Firewalled'.format(h)+ansi['none']+', releasing at: {}Z'.format(_.strftime('%F %T')), console=True)
+            self.cams_notify('{} firewalled, releasing at: {}Z'.format(h, _.strftime('%F %T')), priority='warning')
             #self.cams_notify ('{} \x1d\x02\x0307Firewalled\x0f, releasing at: {}Z'.format(h, _.strftime('%F %T')))
 
             # early quit
@@ -1846,10 +1850,6 @@ class BlamMilter(ppymilter.server.PpyMilter):
         self.printme ('Mail From ▶ {}; {}; {}'.format(mfrom,mail_from,esmtp_info), console=True)
 
         if isinstance(mfrom, list):
-            if mfrom[1].lower() in ('itriskltd.com','itys.net'):
-                self.printme(ansi['green'] + 'hard whitelisting incoming from = itys.net or itriskltd.com' + ansi['none'], console=True)
-                self.whitelisted = True
-
             if '.' in mfrom[1]:
                 inv = mfrom[1].split('.')
                 inv = inv[-1:][0]
@@ -1862,7 +1862,7 @@ class BlamMilter(ppymilter.server.PpyMilter):
             if self.whitelisted or self.authenticated or self.client_address == '127.0.0.1':
                 return self.Continue()
 
-            if not self.client_address in ('127.0.0.1','10.255.0.2','10.255.0.3','10.255.0.4'):
+            if not self.client_address in ('127.0.0.1'):
                 try:
                     i=self.client_address
                     if i.startswith('IPv6:'):
@@ -1873,7 +1873,7 @@ class BlamMilter(ppymilter.server.PpyMilter):
                     res = self._spf_check(i,s,h)
                     self.printme('\033[37mSPF result for "MAIL FROM": {}, {}\033[0m'.format(res,s,i), level=logging.DEBUG)
                     if res[0] == 'fail':
-                        self.mod_dfw_score(self.dfw.grace_score +1, 'SPF designates your IP as a not-permitted source; {}', ensure_positive_penalty=True)
+                        self.mod_dfw_score(self.dfw.grace_score +1, 'SPF designates your IP ({}) as a not-permitted source;'.format(i), ensure_positive_penalty=True)
                         return self.Continue()
                     elif res[0] == 'softfail':
                         # discouraged use, penalize
@@ -1949,12 +1949,6 @@ class BlamMilter(ppymilter.server.PpyMilter):
         if not rcpt_to in self.recipients:
             self.recipients.append(rcpt_to)
             self.stored_recipients.append(rcpt_to)
-
-        for mjh in ('itys.net','itriskltd.com'):
-            if rcpt_hostname.lower().endswith(mjh):
-                self.printme('\x1b[1;37;42mhardwiring whitelist due to {} in RCPT TO: {}\x1b[0m'.format(mjh,rcpt_to), console=True)
-                self.whitelisted = True
-                break
 
         if self.whitelisted or self.authenticated:
             return self.Continue()
@@ -2042,6 +2036,7 @@ class BlamMilter(ppymilter.server.PpyMilter):
             # TODO: need to handle this for bypass mode
 
             # early quit
+            self.cams_notify('{}r tcp/{}; DNSBL: {}'.format(self.client_address, self.client_port, response))
             self.mod_dfw_score(self.dfw.grace_score +1, 'DNSBL: {}'.format(response), ensure_positive_penalty=True)
             return self.CustomReply(550, '5.5.2 {}'.format(response), '5.5.2')
 
@@ -2451,6 +2446,8 @@ class BlamMilter(ppymilter.server.PpyMilter):
 
 
         # now process the headers
+        list_sender = any(l in ('list-post','list-help','list-unsubscribe','list-subscribe','list-id') for l,r in headers)
+        self.printme('list-sender is {}'.format(list_sender))
 
         for lhs,rhs in headers:
             if lhs in ('to','cc'):
@@ -2498,17 +2495,19 @@ class BlamMilter(ppymilter.server.PpyMilter):
                     self.printme('Unable to extract addresses from getaddresses([{}])[0][1]'.format(rhs_orig), console=True)
                     continue
 
-                res = self._spf_check(self.client_address, rhs, self.helo)
+                if (not self.client_address in ('127.0.0.1')) and (not list_sender):
+                    res = self._spf_check(self.client_address, rhs, self.helo)
 
-                if res[0] == 'fail':
-                    self.mod_dfw_score(self.dfw.grace_score +1, 'SPF designates your IP as a not-permitted source', ensure_positive_penalty=True)
-                elif res[0] == 'softfail':
-                    # discouraged use, penalize
-                    self.mod_dfw_score(5, 'SPF designates your IP as a discouraged-use source')
-                elif res[0] == 'pass':
-                    if not self.spf_authorized:
-                        self.mod_dfw_score(-10, 'SPF designates your IP as a permitted sender')
-                    self.spf_authorized = True
+                    if res[0] == 'fail':
+                        self.mod_dfw_score(self.dfw.grace_score +1, 'SPF designates your IP ({}) as a not-permitted source for {} using {};'
+                            .format(self.client_address, rhs, self.helo), ensure_positive_penalty=True)
+                    elif res[0] == 'softfail':
+                        # discouraged use, penalize
+                        self.mod_dfw_score(5, 'SPF designates your IP as a discouraged-use source')
+                    elif res[0] == 'pass':
+                        if not self.spf_authorized:
+                            self.mod_dfw_score(-10, 'SPF designates your IP as a permitted sender')
+                        self.spf_authorized = True
 
                 tld = rhs.split('.')[-1:][0]
                 if self.test_tld(tld) is False:
@@ -2854,7 +2853,7 @@ class BlamMilter(ppymilter.server.PpyMilter):
 
                             for _url in sorted(burls):
                                 _c = burls[_url]
-                                self.mod_dfw_score(3*_c, 'url pattern foo1~...~fooN; f({}})*{}={} occurs {} times: {}'.format(3, _c, 3*_c, _url))
+                                self.mod_dfw_score(3*_c, 'url pattern foo1~...~fooN; f({})*{}={} occurs {} times: {}'.format(3, _c, 3*_c, _url))
 
                             # applies to visual text
                             for _part in _texts:
@@ -2863,7 +2862,8 @@ class BlamMilter(ppymilter.server.PpyMilter):
                                     if m:
                                         self.mod_dfw_score(len(m)*score, '{}: f({})*{}={}'.format(keyword.replace('%','%%'), score, len(m), len(m)*score))
 
-                                # spaced out characters
+                                # spaced out characters, this should only apply to plain text, not HTML
+                                
                                 _c = len(re.findall('\w\s{3,40}', _part))
                                 if _c > 5:
                                     self.mod_dfw_score(_c, 'spaced out chars: f({})={}*{}'.format(1, _c, _c))
@@ -3051,17 +3051,6 @@ class BlamMilter(ppymilter.server.PpyMilter):
             self.printme('white_black_list return: {}'.format(_))
 
         self._run_body_tests()
-
-        # double double triple triple check, whitelist itys.net and itriskltd.com
-        # this should not be needed any more --
-        if not self.whitelisted:
-            for mjh in ('itys.net','itriskltd.com'):
-                if self.whitelisted: continue
-                for rcpt_to in self.recipients:
-                    if self.whitelisted: continue
-                    if rcpt_to.endswith(mjh):
-                        self.printme('\x1b[1;37;42mhardwiring whitelist due to {} in RCPT TO: {}\x1b[0m'.format(mjh,rcpt_to), console=True)
-                        self.whitelisted = True
 
         if not (self.whitelisted or self.authenticated):
             if self.dfw_penalty >= self.dfw.grace_score:
@@ -3355,7 +3344,7 @@ class BlamMilter(ppymilter.server.PpyMilter):
         if self.penalties:
             self.printme('DFW penalties:', console=True)
             for i,note in enumerate(self.penalties, 1):
-                self.printme('  {:> 3}: {}\n'.format(i,note), console=True)
+                self.printme('  {:> 3}: {}'.format(i,note), console=True)
 
         # ARF
         if (self.dfw_penalty >= self.dfw.grace_score) and not (self.whitelisted or self.hostname in self.pre_approved):
@@ -3589,7 +3578,7 @@ def main(logger):
     except KeyboardInterrupt:
         print('\033[2D\033[K\033[A')
     except:
-        self.printme('{}'.format( traceback.format_exc(limit=8) ), console=True)
+        print('{}'.format( traceback.format_exc(limit=8) ))
 
     _dfw.shutdown()
     _cams.shutdown()
@@ -3685,6 +3674,7 @@ if __name__ == '__main__':
     # remember to open new file descriptors inside the daemon context, or pass their
     # file descriptors below
 
+    """
     if len(sys.argv) >1 and sys.argv[1] == 'daemon':
         # these too should be in config file
         dcontext = daemon.DaemonContext(umask=0o077,
@@ -3701,6 +3691,8 @@ if __name__ == '__main__':
             main(rootlogger)
 
     else:
+    """
+    if 1:
         ch = logging.StreamHandler()
         ch.setFormatter(fm)
         rootlogger.addHandler(ch)
