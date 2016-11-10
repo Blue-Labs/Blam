@@ -2032,7 +2032,6 @@ class BlamMilter(ppymilter.server.PpyMilter):
         if _dnsbl:
             response = ', '.join(_dnsbl)
 
-
             # TODO: need to handle this for bypass mode
 
             # early quit
@@ -2853,7 +2852,7 @@ class BlamMilter(ppymilter.server.PpyMilter):
 
                             for _url in sorted(burls):
                                 _c = burls[_url]
-                                self.mod_dfw_score(3*_c, 'url pattern foo1~...~fooN; f({})*{}={} occurs {} times: {}'.format(3, _c, 3*_c, _url))
+                                self.mod_dfw_score(3*_c, 'url pattern foo1~...~fooN; f({})*{}={} occurs {} times: {}'.format(3, _c, 3*_c, len(burls[_url]), _url))
 
                             # applies to visual text
                             for _part in _texts:
