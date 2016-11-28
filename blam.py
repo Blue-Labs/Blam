@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 
-__version__  = '3.2.5'
+__version__  = '3.2.7'
 __author__   = 'David Ford <david@blue-labs.org>'
 __email__    = 'david@blue-labs.org'
-__date__     = '2016-Oct-31 23:40z'
+__date__     = '2016-Nov-28 03:28z'
 __license__  = 'Apache 2.0'
 
 """
@@ -1084,7 +1084,7 @@ class BlamMilter(ppymilter.server.PpyMilter):
 
     def _init_resettable(self, abort=False, initall=False):
         self.printme('doing resettable, abort={}, initall={}, has_aborted={}, len(macros)={}/{} len(payload)={}'\
-            .format(abort,initall,self.has_aborted, len(self.macros),len(self.stored_macros), len(self.payload)), console=True)
+            .format(abort,initall,self.has_aborted, len(self.macros),len(self.stored_macros), len(self.payload)))
 
         # store forever
         self.helo_chad              = ('helo' in self.__dict__ and self.helo) and self.helo[-1] or ''
@@ -1274,78 +1274,85 @@ class BlamMilter(ppymilter.server.PpyMilter):
     def db_store(self):
         # this gets called on each Abort(), we do so intentionally so we store any changed macros, headers, etc
 
-        self.db.check_notified()
-        with self.db.conn.cursor() as c:
-            # check for notifications before trampling them
+        try:
+            self.db.check_notified()
+        except:
+            pass
 
-            ts_milter = '{b}' in self.macros and self.macros['{b}'] or self._datetime
-            qid       = '{i}' in self.macros and self.macros['{i}'] or ''
+        try:
+            with self.db.conn.cursor() as c:
+                # check for notifications before trampling them
 
-            (code,short,reason) = self.getFinis()
-            if not code:
-                code = -1
-            if not short:
-                short = ''
-            if not reason:
-                reason = ''
-            reason.replace('\033[31m☠\033[0m ', '')
+                ts_milter = '{b}' in self.macros and self.macros['{b}'] or self._datetime
+                qid       = '{i}' in self.macros and self.macros['{i}'] or ''
 
-            if self.client_address.startswith('IPv6:'):
-                address = self.client_address[5:]
-            else:
-                address = self.client_address
+                (code,short,reason) = self.getFinis()
+                if not code:
+                    code = -1
+                if not short:
+                    short = ''
+                if not reason:
+                    reason = ''
+                reason.replace('\033[31m☠\033[0m ', '')
 
-            # delete "xxx" from the _from
-            if self._from:
-                try:
-                    x = re.search('<([\w\d._+-]+@[\w\d._+-]+)>', self._from).group(1)
-                except:
-                    x = self._from
-                self._from = x.lstrip().rstrip().rstrip('>').lstrip('<')
+                if self.client_address.startswith('IPv6:'):
+                    address = self.client_address[5:]
+                else:
+                    address = self.client_address
 
-            # this needs to store both MAIL FROM and From
-            stats = {'ts_now':self._datetime, 'ts_milter':ts_milter, 'qid':qid, 'ip':address, 'helo':str(self.helo), 'quitcode':code, 'quitshort':short, 'quitreason':reason, 'quitlocation':self.quit_location, 'recipients':self.recipients, 'mail_from':self.mail_from}
-            macros = [ [self._datetime,x[0],x[1]] for x in self.macros.items() ]
-            headers = [ [self._datetime,x[0],x[1]] for x in self.headers ]
+                # delete "xxx" from the _from
+                if self._from:
+                    try:
+                        x = re.search('<([\w\d._+-]+@[\w\d._+-]+)>', self._from).group(1)
+                    except:
+                        x = self._from
+                    self._from = x.lstrip().rstrip().rstrip('>').lstrip('<')
 
-            '''
-            ( $1::timestamp,
-              $2::text::timestamp,
-              $3::text,
-              $4::text::inet,
-              $5::text,
-              $6::int,
-              $7::text,
-              $8::text,
-              $9::text,
-              $10::text[],
-              $11::text)
+                # this needs to store both MAIL FROM and From
+                stats = {'ts_now':self._datetime, 'ts_milter':ts_milter, 'qid':qid, 'ip':address, 'helo':str(self.helo), 'quitcode':code, 'quitshort':short, 'quitreason':reason, 'quitlocation':self.quit_location, 'recipients':self.recipients, 'mail_from':self.mail_from}
+                macros = [ [self._datetime,x[0],x[1]] for x in self.macros.items() ]
+                headers = [ [self._datetime,x[0],x[1]] for x in self.headers ]
 
-              cols = 'ts_now,ts_milter,qid,ip,helo,quitcode,quitshort,quitreason,quitlocation,recipients,mail_from'
-            '''
+                '''
+                ( $1::timestamp,
+                  $2::text::timestamp,
+                  $3::text,
+                  $4::text::inet,
+                  $5::text,
+                  $6::int,
+                  $7::text,
+                  $8::text,
+                  $9::text,
+                  $10::text[],
+                  $11::text)
 
-            c.execute('''EXECUTE insert_stats
-                (
-                %(ts_now)s,
-                %(ts_milter)s,
-                %(qid)s,
-                %(ip)s,
-                %(helo)s,
-                %(quitcode)s,
-                %(quitshort)s,
-                %(quitreason)s,
-                %(quitlocation)s,
-                %(recipients)s,
-                %(mail_from)s
-                )''', stats)
+                  cols = 'ts_now,ts_milter,qid,ip,helo,quitcode,quitshort,quitreason,quitlocation,recipients,mail_from'
+                '''
 
-            for row in macros:
-                c.execute('EXECUTE insert_macros (%s,%s,%s)', row)
+                c.execute('''EXECUTE insert_stats
+                    (
+                    %(ts_now)s,
+                    %(ts_milter)s,
+                    %(qid)s,
+                    %(ip)s,
+                    %(helo)s,
+                    %(quitcode)s,
+                    %(quitshort)s,
+                    %(quitreason)s,
+                    %(quitlocation)s,
+                    %(recipients)s,
+                    %(mail_from)s
+                    )''', stats)
 
-            for row in headers:
-                c.execute('EXECUTE insert_headers (%s,%s,%s)', row)
+                for row in macros:
+                    c.execute('EXECUTE insert_macros (%s,%s,%s)', row)
 
-            self.printme('all records stored in DB', logging.DEBUG)
+                for row in headers:
+                    c.execute('EXECUTE insert_headers (%s,%s,%s)', row)
+
+                self.printme('all records stored in DB', logging.DEBUG)
+        except:
+            self.printme('Error, failed to store records in DB')
 
 
     def check_dns(self, hostname):
@@ -1909,13 +1916,9 @@ class BlamMilter(ppymilter.server.PpyMilter):
 
         self.printme('Looking for {} in my networks'.format(ip), level=logging.DEBUG)
 
-        bluelabs = ( ipaddress.ip_network('128.242.79.0/27'),   # david @office/datacenter
-                     ipaddress.ip_network('173.12.76.128/29'),  # david @home
-                     ipaddress.ip_network('107.170.82.162/32'), # sea-dragon
-                     ipaddress.ip_network('97.107.142.140/32'), # mustang
-                     ipaddress.ip_network('24.250.16.144/32'),     # smvfd/engine2
-                     ipaddress.ip_network('10.69.0.0/24'),     # bluelabs vpn
-                     ipaddress.ip_network('10.68.0.0/24'),     # dragonmango vpn
+        bluelabs = ( ipaddress.ip_network('173.12.76.128/29'),  # david @home
+                     ipaddress.ip_network('45.55.203.168/32'),  # scruffy
+                     ipaddress.ip_network('10.69.0.0/24'),      # bluelabs vpn
                      ipaddress.ip_network('127.0.0.1/32'),      # localhost for a blam client
                    )
 
@@ -2852,7 +2855,7 @@ class BlamMilter(ppymilter.server.PpyMilter):
 
                             for _url in sorted(burls):
                                 _c = burls[_url]
-                                self.mod_dfw_score(3*_c, 'url pattern foo1~...~fooN; f({})*{}={} occurs {} times: {}'.format(3, _c, 3*_c, len(burls[_url]), _url))
+                                self.mod_dfw_score(3*_c, 'url pattern foo1~...~fooN; f({})*{}={} occurs {} times: {}'.format(3, _c, 3*_c, burls[_url], _url))
 
                             # applies to visual text
                             for _part in _texts:
@@ -3114,7 +3117,7 @@ class BlamMilter(ppymilter.server.PpyMilter):
             return
 
         _console = not(self.helo[-1] == 'icinga.security-carpet.com' and self.quit_location == 'OnHelo')
-        self.printme (ansi['byellow']+'Aborted'+ansi['none']+' in MTA: {}, {} was last function'.format(data, self.quit_location), console=_console)
+        self.printme (ansi['byellow']+'Aborted'+ansi['none']+' in MTA: {}, {} was last function'.format(data, self.quit_location))
         self.printme ('time spent: {}'.format(datetime.datetime.now() - self._datetime))
         # don't slam too hard, it could be a timeout issue rather than a bot
 
