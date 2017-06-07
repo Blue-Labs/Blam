@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 
-__version__  = '3.2.7'
+__version__  = '3.2.8'
 __author__   = 'David Ford <david@blue-labs.org>'
 __email__    = 'david@blue-labs.org'
-__date__     = '2016-Nov-28 03:28z'
+__date__     = '2016-Dec-29 13:26z'
 __license__  = 'Apache 2.0'
 
 """
@@ -11,10 +11,11 @@ __license__  = 'Apache 2.0'
 ##
 ##   TODO list
 ##
-##     1.
-##     2.  smtp callback verification
-##     3.  reputation scoring
-##     4.  make a last-seen column in prefs, update it when incoming matches
+##     1.  smtp callback verification
+##     2.  reputation scoring
+##     3.  make a last-seen column in prefs, update it when incoming matches
+##     4.  make a live quarantine area. if user adds whitelist, check quarantine
+##         area and release any affected emails. quarantine area housekeeping needed
 ##
 
 
@@ -731,6 +732,9 @@ class DB():
                 self.conn      = psycopg2.connect(uri)
                 self.prefsconn = self.conn
                 self.conn.set_isolation_level(psycopg2.extensions.ISOLATION_LEVEL_AUTOCOMMIT)
+                
+                with self.conn.cursor() as c:
+                    c.execute("SET statement_timeout = '10s'")
             except Exception as e:
                 logger.error ('failed to connect to psql db: {}'.format(e))
 
@@ -1204,7 +1208,8 @@ class BlamMilter(ppymilter.server.PpyMilter):
                 # we need to scour code and make a programatic way to validate this before ignoring this msg
                 if _blam:
                     self.logger.log(logging.ERROR, '\x1b[1;31m### no iolog or logname! ###\x1b[0m')
-                    self.logger.log(logging.ERROR, inspect.stack()[1])
+                    #self.logger.log(logging.ERROR, inspect.stack()[1])
+                    self.logger.log(logging.ERROR, 'blamstack: %s'.format(traceback.format_stack()))
                 self.logger.log(logging.ERROR, data)
         except ValueError: # happens on closed logfiles
             pass
@@ -1351,8 +1356,8 @@ class BlamMilter(ppymilter.server.PpyMilter):
                     c.execute('EXECUTE insert_headers (%s,%s,%s)', row)
 
                 self.printme('all records stored in DB', logging.DEBUG)
-        except:
-            self.printme('Error, failed to store records in DB')
+        except Exception as e:
+            self.printme('Error, failed to store records in DB: {}'.format(e))
 
 
     def check_dns(self, hostname):
@@ -2450,6 +2455,15 @@ class BlamMilter(ppymilter.server.PpyMilter):
         # now process the headers
         list_sender = any(l in ('list-post','list-help','list-unsubscribe','list-subscribe','list-id') for l,r in headers)
         self.printme('list-sender is {}'.format(list_sender))
+        if list_sender:
+            # try to find the normalized sending address for the list
+            try:
+                self.list_sender = re.fullmatch('<mailto:(.*)>', headers['list-post']).group(1)
+            except:
+                try:
+                    self.list_sender = re.fullmatch('([a-z0-9_-]+)-return.*?@(.*)', self.macros['{mail_addr}'])
+                except:
+                    pass
 
         for lhs,rhs in headers:
             if lhs in ('to','cc'):
@@ -2626,6 +2640,8 @@ class BlamMilter(ppymilter.server.PpyMilter):
                 _tocheck.append(localpart)
             if localuser not in _tocheck:
                 _tocheck.append(localuser)
+            if hasattr(self, 'list_sender'):
+                _tocheck.append(self.list_sender)
 
             # check whitelists
             self.whitelisted,why = check_wblist(self.printme, db.prefs, localusers, _tocheck, 'whitelist_to')
@@ -3665,7 +3681,7 @@ if __name__ == '__main__':
     rootlogger.setLevel(logging.INFO)
 
     fh = logging.handlers.TimedRotatingFileHandler(filename='/var/log/blam', when='midnight', backupCount=14, encoding='utf-8')
-    fm = logging.Formatter(fmt='%(asctime)-8s %(levelname)-.1s %(loadavg)1.1f %(sipport)s %(message)s', datefmt='%H:%M:%S')
+    fm = logging.Formatter(fmt='%(levelname)-.1s %(sipport)s %(message)s', datefmt='%H:%M:%S')
 
     fh.setFormatter(fm)
     rootlogger.addHandler(fh)
