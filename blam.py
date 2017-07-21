@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 
-__version__  = '3.2.8'
+__version__  = '3.2.9'
 __author__   = 'David Ford <david@blue-labs.org>'
 __email__    = 'david@blue-labs.org'
-__date__     = '2016-Dec-29 13:26z'
+__date__     = '2017-Jul-21 21:24z'
 __license__  = 'Apache 2.0'
 
 """
@@ -588,6 +588,30 @@ def check_wblist(pme, prefs, localusers, targets, wblist):
     else:
         return None,None
 
+class SpamDict:
+    """
+ create table spam_dict (
+   rid   serial unique,
+   ktype int  not null,
+   key   text not null,
+   value text not null,
+   primary key(ktype, key, value)
+);
+
+    """
+    def __init__(self):
+        self.text = []
+        self.pcre = []
+
+    def add(self, category, kvlist):
+        return
+
+    def match(self, value):
+        return
+
+    def search(self, value):
+        return
+
 
 class Prefs:
     def __init__(self):
@@ -732,7 +756,7 @@ class DB():
                 self.conn      = psycopg2.connect(uri)
                 self.prefsconn = self.conn
                 self.conn.set_isolation_level(psycopg2.extensions.ISOLATION_LEVEL_AUTOCOMMIT)
-                
+
                 with self.conn.cursor() as c:
                     c.execute("SET statement_timeout = '10s'")
             except Exception as e:
@@ -1778,7 +1802,7 @@ class BlamMilter(ppymilter.server.PpyMilter):
         for __rdtype in ('A', 'AAAA'):
             try:
                 answers += [x.to_text() for x in self.resolver.query(host, __rdtype)]
-                self.printme('\x1b[1;34mDBG.6>> {}'.format(answers))
+                self.printme('\x1b[1;34mDBG.6>> {}\x1b[0'.format(answers))
             except (dns.resolver.NXDOMAIN, dns.resolver.NoNameservers, dns.resolver.NoAnswer, dns.exception.Timeout):
                 pass
             except Exception as e:
@@ -1885,11 +1909,11 @@ class BlamMilter(ppymilter.server.PpyMilter):
                     res = self._spf_check(i,s,h)
                     self.printme('\033[37mSPF result for "MAIL FROM": {}, {}\033[0m'.format(res,s,i), level=logging.DEBUG)
                     if res[0] == 'fail':
-                        self.mod_dfw_score(self.dfw.grace_score +1, 'SPF designates your IP ({}) as a not-permitted source;'.format(i), ensure_positive_penalty=True)
+                        self.mod_dfw_score(self.dfw.grace_score +1, 'SPF designates your IP ({}/{}) as a not-permitted source for {};'.format(h,i,s), ensure_positive_penalty=True)
                         return self.Continue()
                     elif res[0] == 'softfail':
                         # discouraged use, penalize
-                        self.mod_dfw_score(5, 'SPF designates your IP as a discouraged-use source')
+                        self.mod_dfw_score(5, 'SPF designates your IP as a discouraged-use source; h={}, i={}, s={}'.format(h,i,s))
                     elif res[0] == 'pass':
                         if not self.spf_authorized:
                             self.mod_dfw_score(-10, 'SPF designates your IP as a permitted sender')
@@ -2061,11 +2085,12 @@ class BlamMilter(ppymilter.server.PpyMilter):
 
         helo = self.helo[-1]
         # apply a 0-10 penalty for sessions. 0 for full 256bit, 10 for no encryption
-        _no_enc_penalty = 10
+        _enc_penalty = 10
         if '{cipher_bits}' in self.macros:
-            _cb = int(self.macros.get('{cipher_bits}', '0'))/25.6
-            _no_enc_penalty -= _cb
-            self.mod_dfw_score(_no_enc_penalty, 'cipher bits strength penalty')
+            _cb = int(self.macros.get('{cipher_bits}', '0'))/25.6 # no encryption=10, 128bit=5, 256bit=0
+            _enc_penalty -= _cb
+            _enc_penalty /= 2
+            self.mod_dfw_score(_enc_penalty, 'cipher bits strength penalty for {}bit = {}'.format(int(self.macros.get('{cipher_bits}', '0')), _enc_penalty))
 
         # fuck off ylmf-pc bot
         if helo == 'ylmf-pc':
@@ -2881,7 +2906,7 @@ class BlamMilter(ppymilter.server.PpyMilter):
                                         self.mod_dfw_score(len(m)*score, '{}: f({})*{}={}'.format(keyword.replace('%','%%'), score, len(m), len(m)*score))
 
                                 # spaced out characters, this should only apply to plain text, not HTML
-                                
+
                                 _c = len(re.findall('\w\s{3,40}', _part))
                                 if _c > 5:
                                     self.mod_dfw_score(_c, 'spaced out chars: f({})={}*{}'.format(1, _c, _c))
