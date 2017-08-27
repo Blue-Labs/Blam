@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 
-__version__  = '3.2.9'
+__version__  = '3.2.12'
 __author__   = 'David Ford <david@blue-labs.org>'
 __email__    = 'david@blue-labs.org'
-__date__     = '2017-Jul-21 21:24z'
+__date__     = '2017-Aug-25 21:40z'
 __license__  = 'Apache 2.0'
 
 """
@@ -785,6 +785,7 @@ class DB():
 
     def close(self):
         self.conn.close()
+        self.conn = None
 
 
     # whitelist/blacklist preferences
@@ -1205,6 +1206,7 @@ class BlamMilter(ppymilter.server.PpyMilter):
 
         # get caller's python filename
         _blam = inspect.stack()[1].filename == __file__
+        print('===blam===: {}'.format(_blam))
         #_st = ('','')
         _st = self.st
         #if not _blam:
@@ -1233,7 +1235,7 @@ class BlamMilter(ppymilter.server.PpyMilter):
                 if _blam:
                     self.logger.log(logging.ERROR, '\x1b[1;31m### no iolog or logname! ###\x1b[0m')
                     #self.logger.log(logging.ERROR, inspect.stack()[1])
-                    self.logger.log(logging.ERROR, 'blamstack: %s'.format(traceback.format_stack()))
+                    self.logger.log(logging.ERROR, 'blamstack: {}'.format(traceback.format_stack()))
                 self.logger.log(logging.ERROR, data)
         except ValueError: # happens on closed logfiles
             pass
@@ -1308,7 +1310,7 @@ class BlamMilter(ppymilter.server.PpyMilter):
         except:
             pass
 
-        try:
+        def _db_store():
             with self.db.conn.cursor() as c:
                 # check for notifications before trampling them
 
@@ -1380,8 +1382,16 @@ class BlamMilter(ppymilter.server.PpyMilter):
                     c.execute('EXECUTE insert_headers (%s,%s,%s)', row)
 
                 self.printme('all records stored in DB', logging.DEBUG)
+
+        try:
+            _db_store()
+        except (psycopg2.OperationalError, psycopg2.InterfaceError):
+            self.printme('Connection to DB failed, reconnecting', console=True)
+            self.db.close()
+            self.db.reconnect()
+            _db_store()
         except Exception as e:
-            self.printme('Error, failed to store records in DB: {}'.format(e))
+            self.printme('Error, failed to store records in DB: {}'.format(e), console=True)
 
 
     def check_dns(self, hostname):
@@ -1687,7 +1697,7 @@ class BlamMilter(ppymilter.server.PpyMilter):
                     nmacros += 1
                 self.macros[k] = d[k]
 
-                if k == 'i' and not self.logname:
+                if k == '{i}' and not self.logname:
                     _ = os.path.join('/var/spool/blam/logfiles', d[k])
                     self.printme('switching iolog stream to {}'.format(_), console=True)
                     self.logname = open(_, 'a', encoding='utf-8')
@@ -2042,14 +2052,26 @@ class BlamMilter(ppymilter.server.PpyMilter):
         #self.print_as_pairs(self.macros, console=True)
 
         if True:
-            s = 'from %({client_name})s (%({_})s)' %(self.macros)
+            try:
+                s = 'from %({client_name})s (%({_})s)' %(self.macros)
+            except:
+                try:
+                    s = 'from <> (%({_})s)' %(self.macros)
+                except:
+                    s = 'from <>'
+                    self.printme('failed to find {client_name} and {_} in self.macros', level=logging.WARNING, console=True)
+                    self.print_as_pairs(self.macros, console=True)
+
             if '{tls_version}' in self.macros:
                 s += '\r\n    (using %({tls_version})s with cipher %({cipher})s (%({cipher_bits})s))' %(self.macros)
                 if '{cert_subject}' in self.macros:
                     s += '\r\n    (Client CN "%({cert_subject})s", Issuer "%({cert_issuer})s" (verified WTF-Postfix))' %(self.macros)
                 s += '\r\n    by %({j})s (Postfix) with ESMTPS id %({i})s' %(self.macros)
             else:
-                s += '\r\n    by %({j})s (Postfix) with ESMTP id %({i})s' %(self.macros)
+                try:
+                    s += '\r\n    by %({j})s (Postfix) with ESMTP id %({i})s' %(self.macros)
+                except:
+                    s += '\r\n    by [%({mail_host})s] (Postfix) with ESMTP id %({i})s' %(self.macros)
             s += '\r\n    for <%({rcpt_addr})s>; ' %(self.macros)
             s += '{}'.format(self._datetime.strftime('%a, %d %b %Y %H:%M:%S +0000 (UTC)'))
 
@@ -2622,6 +2644,12 @@ class BlamMilter(ppymilter.server.PpyMilter):
             if not self.macros['{rcpt_addr}'] in rcptto:
                 rcptto.append(self.macros['{rcpt_addr}'])
 
+            # if this is a list, add the To: header value(s)
+            if hasattr(self, 'list_sender') and self.list_sender:
+                x = [z[1] for z in getaddresses([self.headers['To']])]
+                if x:
+                    rcpttos += x
+
             # sort and make unique
             rcpttos = set(rcptto + [ x.split('@')[0] for x in rcptto ])
 
@@ -2661,11 +2689,11 @@ class BlamMilter(ppymilter.server.PpyMilter):
             self.printme ('localusers: {}'.format(localusers), logging.INFO)
 
             _tocheck = [self.macros['{rcpt_addr}']]
-            if localpart not in _tocheck:
+            if localpart and localpart not in _tocheck:
                 _tocheck.append(localpart)
-            if localuser not in _tocheck:
+            if localuser and localuser not in _tocheck:
                 _tocheck.append(localuser)
-            if hasattr(self, 'list_sender'):
+            if hasattr(self, 'list_sender') and self.list_sender:
                 _tocheck.append(self.list_sender)
 
             # check whitelists
@@ -3322,6 +3350,7 @@ class BlamMilter(ppymilter.server.PpyMilter):
         self.printme('#CLOSE#', console=True)
         if self.has_closed:
             self.printme('OnClose() called again, ignoring', console=True)
+            return
 
         self.has_closed=True
 
@@ -3404,26 +3433,26 @@ class BlamMilter(ppymilter.server.PpyMilter):
                     and self.client_port):
                 self.printme('Skipping ARF, no mail_addr value in macros', console=True)
             else:
-                self.printme('Starting ARF', console=True)
-
-                '''
-                enc_p=False
-                for enc in ('utf-8','cp1252','latin-1','ascii'):
-                    try:
-                        enc_p = self.stored_payload.decode(enc)
-                        break
-                    except Exception as e:
-                        self.printme('Failed to convert payload: {}'.format(e), console=True)
-                        continue
-
-                if enc_p is False:
-                    self.printme("Unable to convert payload, can't continue with ARF", console=True)
-
-                else:
-                '''
-                enc_p = self.stored_email_msg
-
                 if self.subject_chad: # sigh, can't keep up. only do ARFs on bodied spams.
+
+                    self.printme('Starting ARF', console=True)
+                    '''
+                    enc_p=False
+                    for enc in ('utf-8','cp1252','latin-1','ascii'):
+                        try:
+                            enc_p = self.stored_payload.decode(enc)
+                            break
+                        except Exception as e:
+                            self.printme('Failed to convert payload: {}'.format(e), console=True)
+                            continue
+
+                    if enc_p is False:
+                        self.printme("Unable to convert payload, can't continue with ARF", console=True)
+
+                    else:
+                    '''
+                    enc_p = self.stored_email_msg
+
                     try:
 
                         arfc = 'ARF' in self.config and self.config['ARF']
