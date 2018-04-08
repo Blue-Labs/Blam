@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 
-__version__  = '3.2.12'
+__version__  = '3.2.13'
 __author__   = 'David Ford <david@blue-labs.org>'
 __email__    = 'david@blue-labs.org'
-__date__     = '2017-Aug-25 21:40z'
+__date__     = '2018-Apr-8 04:39z'
 __license__  = 'Apache 2.0'
 
 """
@@ -1315,7 +1315,7 @@ class BlamMilter(ppymilter.server.PpyMilter):
                 # check for notifications before trampling them
 
                 ts_milter = '{b}' in self.macros and self.macros['{b}'] or self._datetime
-                qid       = '{i}' in self.macros and self.macros['{i}'] or ''
+                qid       = 'i' in self.macros and self.macros['i'] or ''
 
                 (code,short,reason) = self.getFinis()
                 if not code:
@@ -1697,7 +1697,7 @@ class BlamMilter(ppymilter.server.PpyMilter):
                     nmacros += 1
                 self.macros[k] = d[k]
 
-                if k == '{i}' and not self.logname:
+                if k == 'i' and not self.logname:
                     _ = os.path.join('/var/spool/blam/logfiles', d[k])
                     self.printme('switching iolog stream to {}'.format(_), console=True)
                     self.logname = open(_, 'a', encoding='utf-8')
@@ -2047,9 +2047,9 @@ class BlamMilter(ppymilter.server.PpyMilter):
         self.quit_location = 'OnData'
 
         # reconstruct first Received header and inject it at the head of our payload and headers
-        # we can't do this until we get our {i} macro which happens late in the game
+        # we can't do this until we get our i macro which happens late in the game
 
-        #self.print_as_pairs(self.macros, console=True)
+        self.print_as_pairs(self.macros, console=True)
 
         if True:
             try:
@@ -2066,12 +2066,12 @@ class BlamMilter(ppymilter.server.PpyMilter):
                 s += '\r\n    (using %({tls_version})s with cipher %({cipher})s (%({cipher_bits})s))' %(self.macros)
                 if '{cert_subject}' in self.macros:
                     s += '\r\n    (Client CN "%({cert_subject})s", Issuer "%({cert_issuer})s" (verified WTF-Postfix))' %(self.macros)
-                s += '\r\n    by %({j})s (Postfix) with ESMTPS id %({i})s' %(self.macros)
+                s += '\r\n    by %(j)s (Postfix) with ESMTPS id %(i)s' %(self.macros)
             else:
                 try:
-                    s += '\r\n    by %({j})s (Postfix) with ESMTP id %({i})s' %(self.macros)
+                    s += '\r\n    by %(j)s (Postfix) with ESMTP id %(i)s' %(self.macros)
                 except:
-                    s += '\r\n    by [%({mail_host})s] (Postfix) with ESMTP id %({i})s' %(self.macros)
+                    s += '\r\n    by [%({mail_host})s] (Postfix) with ESMTP id %(i)s' %(self.macros)
             s += '\r\n    for <%({rcpt_addr})s>; ' %(self.macros)
             s += '{}'.format(self._datetime.strftime('%a, %d %b %Y %H:%M:%S +0000 (UTC)'))
 
@@ -3104,7 +3104,7 @@ class BlamMilter(ppymilter.server.PpyMilter):
 
         self.print_as_pairs(self.macros, console=True)
 
-        fname = os.path.join(self.config['main']['spool dir'], 'interim', self.macros['{i}'])
+        fname = os.path.join(self.config['main']['spool dir'], 'interim', self.macros['i'])
         with open(fname, 'wb') as f:
             f.write(self.payload)
 
@@ -3126,7 +3126,7 @@ class BlamMilter(ppymilter.server.PpyMilter):
         if not (self.whitelisted or self.authenticated):
             if self.dfw_penalty >= self.dfw.grace_score:
                 self.was_kicked = True
-                qid = '{i}' in self.macros and self.macros['{i}'] or "q<?3>"
+                qid = 'i' in self.macros and self.macros['i'] or "q<?3>"
                 self.printme ('{} \x1d\x02\x0313{}\x0f \u22b3 {}; \x0313{}: scored {}\x0f'.format(qid, self._from, self.recipients, 'email too spammy', self.dfw_penalty))
                 return self.CustomReply(503, '[{}] message not acceptable'.format(self._datetime), 'SPAMMY_CONTENT')
 
@@ -3163,8 +3163,8 @@ class BlamMilter(ppymilter.server.PpyMilter):
         self.printme('#ABORT#')
 
         self.has_aborted = True
-        if '{i}' in self.macros:
-            self.last_qid = self.macros['{i}']
+        if 'i' in self.macros:
+            self.last_qid = self.macros['i']
 
         tls_version = '{tls_version}' in self.macros
         # just in case it isn't a TLS session, penalize. we'll void this in OnHelo if
@@ -3308,7 +3308,7 @@ class BlamMilter(ppymilter.server.PpyMilter):
 
 
     def _store_reject(self):
-        qid = '{i}' in self.macros and self.macros['{i}'] or self.last_qid or self._datetime.strftime('no-qid-%F %T')
+        qid = 'i' in self.macros and self.macros['i'] or self.last_qid or self._datetime.strftime('no-qid-%F %T')
         payload = self.stored_payload or b''
 
         if not payload:
@@ -3404,7 +3404,7 @@ class BlamMilter(ppymilter.server.PpyMilter):
         # don't report chaff to cams
         if (not self.mta_code == 250) and (not self.in_dnsbl):
             self.printme('MTA code: {}, MTA reason: {}'.format(self.mta_code, self.mta_reason), console=True)
-            qid = '{i}' in self.stored_macros and self.stored_macros['{i}'] or "q<?4>"
+            qid = 'i' in self.stored_macros and self.stored_macros['i'] or "q<?4>"
             self.cams_notify('{} \x1d\x02\x0313{}\x0f \u22b3 {}; \x0313{},{},{}\x0f'.format(
                 qid,
                 self._from or self.hostname,
@@ -3429,7 +3429,7 @@ class BlamMilter(ppymilter.server.PpyMilter):
             self.print_as_pairs(self.macros, console=True)
 
             if not ('{mail_addr}' in self.macros and self.macros['{mail_addr}'] \
-                    and '{j}' in self.macros and self.macros['{j}']
+                    and 'j' in self.macros and self.macros['j']
                     and self.client_port):
                 self.printme('Skipping ARF, no mail_addr value in macros', console=True)
             else:
@@ -3488,7 +3488,7 @@ class BlamMilter(ppymilter.server.PpyMilter):
                         ar = arf.ARF(subject=subject, reporting_domain=reporting_domain, smtpport=587, logger=self.printme)
                         ar.characterize('Source-IP', self.client_address)
                         ar.characterize('Source-Port', self.client_port)
-                        ar.characterize('Reporting-MTA', macros['{j}'])
+                        ar.characterize('Reporting-MTA', macros['j'])
                         ar.characterize('Original-Mail-From', mail_from)
                         ar.characterize('Original-Rcpt-To', rcpt_to)
 
