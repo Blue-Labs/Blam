@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 
-__version__  = '3.2.13'
+__version__  = '3.2.14'
 __author__   = 'David Ford <david@blue-labs.org>'
 __email__    = 'david@blue-labs.org'
-__date__     = '2018-Apr-8 04:39z'
+__date__     = '2018-Sep-9 04:09z'
 __license__  = 'Apache 2.0'
 
 """
@@ -130,7 +130,9 @@ from lxml.cssselect import CSSSelector
 
 # bluelabs modules
 sys.path.append('/var/bluelabs/python')
-import cams, dfw, arf
+#import cams
+import dfw
+import arf
 import wampcams as wc
 
 # we love BS4, but OMGWTF
@@ -3241,8 +3243,13 @@ class BlamMilter(ppymilter.server.PpyMilter):
 
             else:
                 self._store_reject()
+
+                # this is a TLS connection, if this is a TLS probe, don't penalize quite so much.
+                if self.quit_location == 'OnHelo' and '{tls_version}' in self.macros:
+                    self.mod_dfw_score(1, 'TLS probe, early disconnect')
+
                 # don't bother about hanging chads
-                if self.client_address and not self.early_punish:
+                elif self.client_address and not self.early_punish:
                     self.mod_dfw_score(5, 'left early/kicked/not 250/dfw>grace')
                     self.printme('notifying DFW, score is {}'.format(self.dfw_penalty))
                     adr = self.client_address.startswith('IPv6') and self.client_address[5:] or self.client_address
@@ -3260,8 +3267,6 @@ class BlamMilter(ppymilter.server.PpyMilter):
                         self.dfw.punish(self.st[1], adr, penalty=self.dfw_penalty, reasons=reasons)
 
         self.reasons = reasons
-
-
 
     def _summary_report(self):
         if not self.client_address:
